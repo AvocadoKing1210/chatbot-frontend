@@ -17,13 +17,8 @@ export function InitialMessageArea({ onStartChat, className, children }: Initial
         {/* Irregular Grid Background - positioned closely around content */}
         <div className="absolute -inset-8 opacity-40">
           <div 
-            className="w-full h-full"
+            className="w-full h-full grid-background"
             style={{
-              backgroundImage: `
-                linear-gradient(rgba(0, 0, 0, 0.15) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 0, 0, 0.15) 1px, transparent 1px)
-              `,
-              backgroundSize: '20px 20px',
               clipPath: 'polygon(0% 15%, 15% 0%, 85% 0%, 100% 20%, 100% 80%, 85% 100%, 15% 100%, 0% 85%)'
             }}
           />
