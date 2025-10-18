@@ -39,7 +39,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn, getKeyboardShortcut } from "@/lib/utils";
 import type { ChatStatus, FileUIPart } from "ai";
 import {
   ImageIcon,
@@ -1006,7 +1006,7 @@ export const PromptInputSubmit = ({
     Icon = <XIcon className="size-4" />;
   }
 
-  return (
+  const button = (
     <InputGroupButton
       aria-label="Submit"
       className={cn(className)}
@@ -1017,6 +1017,27 @@ export const PromptInputSubmit = ({
     >
       {children ?? Icon}
     </InputGroupButton>
+  );
+
+  // Only show tooltip when not in error or loading state
+  if (status === "submitted" || status === "streaming" || status === "error") {
+    return button;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {button}
+      </TooltipTrigger>
+      <TooltipContent side="top">
+        <div className="flex items-center gap-2">
+          <span>Send Message</span>
+          <kbd className="bg-muted text-muted-foreground pointer-events-none inline-flex h-5 w-fit min-w-5 select-none items-center justify-center gap-1 rounded-sm px-1 font-sans text-xs font-medium">
+            Enter
+          </kbd>
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 };
 

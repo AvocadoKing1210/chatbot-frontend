@@ -7,9 +7,11 @@ import { Sidebar } from "./sidebar"
 import { ChatInput } from "@/components/ai-elements/chat-input"
 import { InitialMessageArea } from "@/components/ai-elements/initial-message-area"
 import { ModeProvider, useMode } from "@/components/providers/mode-provider"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Kbd } from "@/components/ui/kbd"
 import { modeConfig, defaultMode } from "@/data"
 import type { SelectorOption } from "@/components/ai-elements/chat-input"
-import { cn } from "@/lib/utils"
+import { cn, getKeyboardShortcut } from "@/lib/utils"
 
 interface MainLayoutProps {
   className?: string
@@ -52,6 +54,49 @@ function MainLayoutContent({ className }: MainLayoutProps) {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // Global keyboard shortcuts
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs
+      const target = event.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true') {
+        return
+      }
+
+      const isMac = navigator.platform.toLowerCase().includes('mac')
+      const modifierKey = isMac ? event.metaKey : event.ctrlKey
+
+      // Sidebar toggle (Cmd/Ctrl + B)
+      if (modifierKey && event.key.toLowerCase() === 'b') {
+        event.preventDefault()
+        setSidebarCollapsed(!sidebarCollapsed)
+        return
+      }
+
+      // Search focus (Cmd/Ctrl + K)
+      if (modifierKey && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        // Focus search input in sidebar
+        const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement
+        if (searchInput) {
+          searchInput.focus()
+        }
+        return
+      }
+
+
+      // Close sidebar on Escape (mobile)
+      if (event.key === 'Escape' && isMobile && sidebarOpen) {
+        event.preventDefault()
+        setSidebarOpen(false)
+        return
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [sidebarCollapsed, isMobile, sidebarOpen])
+
   // Update document title based on conversation state
   React.useEffect(() => {
     const title = hasActiveConversation && conversationTitle 
@@ -86,15 +131,25 @@ function MainLayoutContent({ className }: MainLayoutProps) {
         {isMobile && (
           <div className="flex items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-4">
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebarOpen(true)}
-                className="h-8 w-8"
-              >
-                <Menu className="h-4 w-4" />
-                <span className="sr-only">Open sidebar</span>
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSidebarOpen(true)}
+                    className="h-8 w-8"
+                  >
+                    <Menu className="h-4 w-4" />
+                    <span className="sr-only">Open sidebar</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <div className="flex items-center gap-2">
+                    <span>Open Sidebar</span>
+                    <Kbd>{getKeyboardShortcut('B')}</Kbd>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
               <div className="flex items-center gap-2">
                 <div className="grid h-6 w-6 place-items-center rounded-full bg-foreground text-background shadow-sm">
                   <Bot className="h-3 w-3" />
