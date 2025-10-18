@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ui/theme-provider";
+import { ChatProvider } from "@/components/providers/chat-provider";
+import { SidebarProvider } from "@/components/providers/sidebar-provider";
+import { PersistentLayout } from "@/components/layout/persistent-layout";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -55,7 +58,13 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <SidebarProvider>
+            <ChatProvider>
+              <PersistentLayout>
+                {children}
+              </PersistentLayout>
+            </ChatProvider>
+          </SidebarProvider>
         </ThemeProvider>
       </body>
     </html>
