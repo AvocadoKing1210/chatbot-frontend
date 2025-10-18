@@ -39,6 +39,7 @@ import { ChatInput } from "./chat-input"
 import { Actions, Action } from "./actions"
 import { CopyButton } from "@/components/ui/copy-button"
 import { StreamingResponse } from "./streaming-response"
+import { Shimmer } from "./shimmer"
 import { useChat } from "@/components/providers/chat-provider"
 import { useMode } from "@/components/providers/mode-provider"
 import { ChatItem, Message } from "@/data/chats"
@@ -243,7 +244,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
         )}
         
         <div className={cn(
-          "max-w-[80%]",
+          "max-w-[90%]",
           isUser ? "ml-auto" : ""
         )}>
           <div className={cn(
@@ -471,14 +472,9 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
               </div>
             </div>
             <div className="bg-muted rounded-lg px-4 py-2">
-              <div className="flex items-center gap-2">
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
-                <span className="text-sm text-muted-foreground">AI is thinking...</span>
-              </div>
+              <Shimmer className="text-sm">
+                AI is thinking...
+              </Shimmer>
             </div>
           </motion.div>
         )}
