@@ -4,8 +4,10 @@ import * as React from "react"
 import { Menu, Bot, Database, CodeXml } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sidebar } from "./sidebar"
-import { ChatInput, type SelectorOption } from "@/components/ai-elements/chat-input"
+import { ChatInput } from "@/components/ai-elements/chat-input"
 import { ModeProvider, useMode } from "@/components/providers/mode-provider"
+import { modeConfig, defaultMode } from "@/data"
+import type { SelectorOption } from "@/components/ai-elements/chat-input"
 import { cn } from "@/lib/utils"
 
 interface MainLayoutProps {
@@ -17,21 +19,21 @@ function MainLayoutContent({ className }: MainLayoutProps) {
   const [chartEnabled, setChartEnabled] = React.useState(false)
   const { selectedMode, setSelectedMode } = useMode()
 
-  // Mode options for SQL and Python Script modes
-  const modeOptions: SelectorOption[] = [
-    { 
-      id: "sql", 
-      name: "SQL", 
-      description: "Generate and execute SQL queries",
-      icon: <Database className="w-4 h-4" />
-    },
-    { 
-      id: "python", 
-      name: "Python", 
-      description: "Generate and run Python scripts",
-      icon: <CodeXml className="w-4 h-4" />
-    },
-  ]
+  // Create mode options with icons
+  const modeOptions: SelectorOption[] = React.useMemo(() => {
+    const iconMap = {
+      Database: <Database className="w-4 h-4" />,
+      CodeXml: <CodeXml className="w-4 h-4" />,
+    }
+
+    return modeConfig.map(config => ({
+      id: config.id,
+      name: config.name,
+      description: config.description,
+      icon: iconMap[config.iconName],
+    }))
+  }, [])
+
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false)
   const [isMobile, setIsMobile] = React.useState(false)
 
@@ -158,7 +160,7 @@ function MainLayoutContent({ className }: MainLayoutProps) {
 
 export function MainLayout({ className }: MainLayoutProps) {
   return (
-    <ModeProvider defaultMode="sql">
+    <ModeProvider defaultMode={defaultMode}>
       <MainLayoutContent className={className} />
     </ModeProvider>
   )

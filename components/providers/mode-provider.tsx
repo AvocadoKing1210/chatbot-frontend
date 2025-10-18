@@ -1,8 +1,7 @@
 "use client"
 
 import * as React from "react"
-
-export type AppMode = "sql" | "python"
+import type { AppMode } from "@/data"
 
 interface ModeContextType {
   selectedMode: AppMode
