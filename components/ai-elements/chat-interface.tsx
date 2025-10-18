@@ -39,6 +39,7 @@ import { ChatInput } from "./chat-input"
 import { Actions, Action } from "./actions"
 import { CopyButton } from "@/components/ui/copy-button"
 import { StreamingResponse } from "./streaming-response"
+import { MessageActions } from "./message-actions"
 import { Shimmer } from "./shimmer"
 import { useChat } from "@/components/providers/chat-provider"
 import { useMode } from "@/components/providers/mode-provider"
@@ -209,10 +210,21 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
   }
 
   const handleMessageFeedback = (messageId: string, feedback: 'liked' | 'disliked') => {
+    // Store current scroll position before state change
+    const messagesContainer = messagesEndRef.current?.parentElement
+    const scrollTop = messagesContainer?.scrollTop || 0
+    
     setMessageFeedback(prev => ({
       ...prev,
       [messageId]: prev[messageId] === feedback ? null : feedback
     }))
+    
+    // Restore scroll position after state change
+    requestAnimationFrame(() => {
+      if (messagesContainer) {
+        messagesContainer.scrollTop = scrollTop
+      }
+    })
   }
 
 
@@ -229,9 +241,29 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
     })
   }
 
+  // Separate component for message actions to isolate feedback state
+  const MessageActionsWrapper = React.memo(({ messageId, messageContent, timestamp }: { 
+    messageId: string
+    messageContent: string
+    timestamp: string
+  }) => {
+    const currentFeedback = messageFeedback[messageId]
+    
+    return (
+      <MessageActions
+        messageId={messageId}
+        messageContent={messageContent}
+        currentFeedback={currentFeedback}
+        onRegenerate={handleRegenerateMessage}
+        onFeedback={handleMessageFeedback}
+        onShare={handleShareMessage}
+        timestamp={timestamp}
+      />
+    )
+  })
+
   const MessageBubble = React.memo(({ message }: { message: Message }) => {
     const isUser = message.role === 'user'
-    const currentFeedback = messageFeedback[message.id]
     const isStreaming = streamingMessages.has(message.id)
     
     return (
@@ -276,59 +308,11 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
           
           {/* Actions and timestamp row */}
           {!isUser && (
-            <div className="mt-2 flex items-center justify-between">
-              <Actions>
-                <Action
-                  tooltip="Regenerate response"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleRegenerateMessage(message.id)
-                  }}
-                >
-                  <RotateCcw className="h-4 w-4" />
-                </Action>
-                <Action
-                  tooltip="Good response"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleMessageFeedback(message.id, 'liked')
-                  }}
-                  className={cn(
-                    currentFeedback === 'liked' && "text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
-                  )}
-                >
-                  <ThumbsUp className="h-4 w-4" />
-                </Action>
-                <Action
-                  tooltip="Poor response"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleMessageFeedback(message.id, 'disliked')
-                  }}
-                  className={cn(
-                    currentFeedback === 'disliked' && "text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
-                  )}
-                >
-                  <ThumbsDown className="h-4 w-4" />
-                </Action>
-                <CopyButton
-                  text={message.content}
-                  tooltip="Copy message"
-                />
-                <Action
-                  tooltip="Share message"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleShareMessage(message.id)
-                  }}
-                >
-                  <Share className="h-4 w-4" />
-                </Action>
-              </Actions>
-              <div className="text-xs text-muted-foreground opacity-70">
-                {formatTimestamp(message.timestamp)}
-              </div>
-            </div>
+            <MessageActionsWrapper
+              messageId={message.id}
+              messageContent={message.content}
+              timestamp={message.timestamp}
+            />
           )}
           
           {/* Timestamp for user messages */}
@@ -349,6 +333,15 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
           </div>
         )}
       </div>
+    )
+  }, (prevProps, nextProps) => {
+    // Custom comparison function to prevent re-renders when only feedback changes
+    // Only re-render if the message content or streaming status changes
+    return (
+      prevProps.message.id === nextProps.message.id &&
+      prevProps.message.content === nextProps.message.content &&
+      prevProps.message.role === nextProps.message.role &&
+      prevProps.message.timestamp === nextProps.message.timestamp
     )
   })
 

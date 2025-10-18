@@ -28,6 +28,7 @@ export function CopyButton({
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.preventDefault()
+    e.stopPropagation() // Prevent event bubbling
     
     if (isLoading) return
     
@@ -62,7 +63,7 @@ export function CopyButton({
       disabled={isLoading}
       title={tooltip || "Copy to clipboard"}
     >
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" initial={false}>
         {copied ? (
           <motion.div
             key="check"
@@ -77,10 +78,8 @@ export function CopyButton({
         ) : (
           <motion.div
             key="copy"
-            initial={{ scale: 0, opacity: 0 }}
+            initial={false}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
             className="flex items-center justify-center"
           >
             <Copy className="h-4 w-4" />
