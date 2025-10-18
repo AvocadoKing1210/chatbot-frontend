@@ -11,7 +11,11 @@ import {
   Pin, 
   Trash2,
   Tag,
-  ArrowLeft
+  ArrowLeft,
+  RotateCcw,
+  ThumbsUp,
+  ThumbsDown,
+  Share
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,6 +36,9 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { ChatInput } from "./chat-input"
+import { Actions, Action } from "./actions"
+import { CopyButton } from "@/components/ui/copy-button"
+import { StreamingResponse } from "./streaming-response"
 import { useChat } from "@/components/providers/chat-provider"
 import { useMode } from "@/components/providers/mode-provider"
 import { ChatItem, Message } from "@/data/chats"
@@ -55,7 +62,10 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
   const [isDeletingChat, setIsDeletingChat] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(false)
   const [chartEnabled, setChartEnabled] = React.useState(chat.chartEnabled)
+  const [messageFeedback, setMessageFeedback] = React.useState<Record<string, 'liked' | 'disliked' | null>>({})
+  const [streamingMessages, setStreamingMessages] = React.useState<Set<string>>(new Set())
   const messagesEndRef = React.useRef<HTMLDivElement>(null)
+  const initialMessageProcessedRef = React.useRef(false)
 
   // Create mode options with icons
   const modeOptions: SelectorOption[] = React.useMemo(() => {
@@ -84,7 +94,28 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
   React.useEffect(() => {
     setSelectedMode(chat.mode)
     setChartEnabled(chat.chartEnabled)
-  }, []) // Empty dependency array - only run on mount
+    // Clear any streaming messages on mount - existing messages should not stream
+    setStreamingMessages(new Set())
+    
+    // Check if this is a new chat with only a user message (needs AI response)
+    const hasOnlyUserMessage = chat.messages.length === 1 && chat.messages[0].role === 'user'
+    if (hasOnlyUserMessage && !initialMessageProcessedRef.current) {
+      initialMessageProcessedRef.current = true
+      // Generate AI response for the initial user message
+      const userMessage = chat.messages[0].content
+      setIsLoading(true)
+      
+      setTimeout(() => {
+        const aiResponse = generateAIResponse(userMessage)
+        const messageId = addMessage(chat.id, aiResponse, 'assistant')
+        
+        // Mark the new AI message for streaming
+        setStreamingMessages(prev => new Set(prev).add(messageId))
+        
+        setIsLoading(false)
+      }, 1000 + Math.random() * 2000)
+    }
+  }, [chat.id, chat.messages, generateAIResponse, addMessage]) // Dependencies for initial message handling
 
   // Memoize messages to prevent unnecessary re-renders
   const memoizedMessages = React.useMemo(() => chat.messages, [chat.messages])
@@ -97,7 +128,11 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
     // Simulate AI response delay
     setTimeout(() => {
       const aiResponse = generateAIResponse(message)
-      addMessage(chat.id, aiResponse, 'assistant')
+      const messageId = addMessage(chat.id, aiResponse, 'assistant')
+      
+      // Mark the new AI message for streaming
+      setStreamingMessages(prev => new Set(prev).add(messageId))
+      
       setIsLoading(false)
     }, 1000 + Math.random() * 2000) // 1-3 second delay
   }
@@ -143,8 +178,54 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
+  const handleRegenerateMessage = (messageId: string) => {
+    // Find the message and regenerate it
+    const messageIndex = chat.messages.findIndex(m => m.id === messageId)
+    if (messageIndex > 0) {
+      const previousMessage = chat.messages[messageIndex - 1]
+      if (previousMessage.role === 'user') {
+        // Remove the current message and regenerate
+        const updatedMessages = chat.messages.slice(0, messageIndex)
+        setChats(prev => prev.map(c => 
+          c.id === chat.id ? { ...c, messages: updatedMessages } : c
+        ))
+        // Trigger regeneration
+        setTimeout(() => {
+          const aiResponse = generateAIResponse(previousMessage.content)
+          const newMessageId = addMessage(chat.id, aiResponse, 'assistant')
+          
+          // Mark the regenerated message for streaming
+          setStreamingMessages(prev => new Set(prev).add(newMessageId))
+        }, 500)
+      }
+    }
+  }
+
+  const handleMessageFeedback = (messageId: string, feedback: 'liked' | 'disliked') => {
+    setMessageFeedback(prev => ({
+      ...prev,
+      [messageId]: prev[messageId] === feedback ? null : feedback
+    }))
+  }
+
+
+  const handleShareMessage = (messageId: string) => {
+    // You could implement sharing functionality here
+    console.log('Sharing message:', messageId)
+  }
+
+  const handleStreamComplete = (messageId: string) => {
+    setStreamingMessages(prev => {
+      const newSet = new Set(prev)
+      newSet.delete(messageId)
+      return newSet
+    })
+  }
+
   const MessageBubble = React.memo(({ message }: { message: Message }) => {
     const isUser = message.role === 'user'
+    const currentFeedback = messageFeedback[message.id]
+    const isStreaming = streamingMessages.has(message.id)
     
     return (
       <div
@@ -162,20 +243,93 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
         )}
         
         <div className={cn(
-          "max-w-[80%] rounded-lg px-4 py-2",
-          isUser 
-            ? "bg-primary text-primary-foreground ml-auto" 
-            : "bg-muted"
+          "max-w-[80%]",
+          isUser ? "ml-auto" : ""
         )}>
-          <div className="whitespace-pre-wrap text-sm">
-            {message.content}
-          </div>
           <div className={cn(
-            "text-xs mt-1 opacity-70",
-            isUser ? "text-primary-foreground" : "text-muted-foreground"
+            "rounded-lg px-4 py-2",
+            isUser 
+              ? "bg-primary text-primary-foreground" 
+              : "bg-muted"
           )}>
-            {formatTimestamp(message.timestamp)}
+            {isUser ? (
+              <div className="whitespace-pre-wrap text-sm">
+                {message.content}
+              </div>
+            ) : (
+              <StreamingResponse
+                content={message.content}
+                isStreaming={isStreaming}
+                onStreamComplete={() => handleStreamComplete(message.id)}
+              />
+            )}
           </div>
+          
+          {/* Actions and timestamp row */}
+          {!isUser && (
+            <div className="mt-2 flex items-center justify-between">
+              <Actions>
+                <Action
+                  tooltip="Regenerate response"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleRegenerateMessage(message.id)
+                  }}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Action>
+                <Action
+                  tooltip="Good response"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleMessageFeedback(message.id, 'liked')
+                  }}
+                  className={cn(
+                    currentFeedback === 'liked' && "text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
+                  )}
+                >
+                  <ThumbsUp className="h-4 w-4" />
+                </Action>
+                <Action
+                  tooltip="Poor response"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleMessageFeedback(message.id, 'disliked')
+                  }}
+                  className={cn(
+                    currentFeedback === 'disliked' && "text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                  )}
+                >
+                  <ThumbsDown className="h-4 w-4" />
+                </Action>
+                <CopyButton
+                  text={message.content}
+                  tooltip="Copy message"
+                />
+                <Action
+                  tooltip="Share message"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleShareMessage(message.id)
+                  }}
+                >
+                  <Share className="h-4 w-4" />
+                </Action>
+              </Actions>
+              <div className="text-xs text-muted-foreground opacity-70">
+                {formatTimestamp(message.timestamp)}
+              </div>
+            </div>
+          )}
+          
+          {/* Timestamp for user messages */}
+          {isUser && (
+            <div className="mt-1 flex justify-end">
+              <div className="text-xs text-muted-foreground opacity-70">
+                {formatTimestamp(message.timestamp)}
+              </div>
+            </div>
+          )}
         </div>
 
         {isUser && (

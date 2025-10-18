@@ -22,6 +22,7 @@ const CodeBlockContext = createContext<CodeBlockContextType>({
 export type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
   code: string;
   language: string;
+  filename?: string;
   showLineNumbers?: boolean;
   children?: ReactNode;
 };
@@ -29,6 +30,7 @@ export type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
 export const CodeBlock = ({
   code,
   language,
+  filename,
   showLineNumbers = false,
   className,
   children,
@@ -37,29 +39,58 @@ export const CodeBlock = ({
   <CodeBlockContext.Provider value={{ code }}>
     <div
       className={cn(
-        "relative w-full overflow-hidden rounded-md border bg-background text-foreground",
+        "relative w-full overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700",
         className
       )}
       {...props}
     >
+      {/* Header with filename and copy button */}
+      <div className="flex items-center justify-between rounded-t-lg border-b border-gray-200 bg-gray-100 px-4 py-2.5 dark:border-gray-700 dark:bg-gray-900">
+        <div className="flex items-center gap-2">
+          {filename && (
+            <span className="font-mono text-xs font-medium text-gray-700 dark:text-gray-300">
+              {filename}
+            </span>
+          )}
+          {!filename && language && (
+            <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
+              {language}
+            </span>
+          )}
+        </div>
+        {children && (
+          <div className="flex items-center gap-2">
+            {children}
+          </div>
+        )}
+      </div>
+
+      {/* Code content */}
       <div className="relative">
         <SyntaxHighlighter
           className="overflow-hidden dark:hidden"
           codeTagProps={{
-            className: "font-mono text-sm",
+            className: "font-mono text-[13px] leading-6",
           }}
           customStyle={{
             margin: 0,
             padding: "1rem",
-            fontSize: "0.875rem",
-            background: "hsl(var(--background))",
-            color: "hsl(var(--foreground))",
+            fontSize: "13px",
+            lineHeight: "1.5",
+            background: "#f9fafb",
+            color: "#111827",
+            border: "none",
+            borderRadius: "0 0 0.5rem 0.5rem",
           }}
           language={language}
           lineNumberStyle={{
-            color: "hsl(var(--muted-foreground))",
-            paddingRight: "1rem",
-            minWidth: "2.5rem",
+            color: "#6b7280",
+            paddingRight: "0.5rem",
+            marginRight: "0.5rem",
+            minWidth: "2rem",
+            textAlign: "right",
+            userSelect: "none",
+            paddingLeft: "0.3rem",
           }}
           showLineNumbers={showLineNumbers}
           style={oneLight}
@@ -69,31 +100,33 @@ export const CodeBlock = ({
         <SyntaxHighlighter
           className="hidden overflow-hidden dark:block"
           codeTagProps={{
-            className: "font-mono text-sm",
+            className: "font-mono text-[13px] leading-6",
           }}
           customStyle={{
             margin: 0,
             padding: "1rem",
-            fontSize: "0.875rem",
-            background: "hsl(var(--background))",
-            color: "hsl(var(--foreground))",
+            fontSize: "13px",
+            lineHeight: "1.5",
+            background: "#0a0a0a",
+            color: "#ffffff",
+            border: "none",
+            borderRadius: "0 0 0.5rem 0.5rem",
           }}
           language={language}
           lineNumberStyle={{
-            color: "hsl(var(--muted-foreground))",
-            paddingRight: "1rem",
-            minWidth: "2.5rem",
+            color: "#6b7280",
+            paddingRight: "0.5rem",
+            minWidth: "2rem",
+            textAlign: "right",
+            userSelect: "none",
+            borderRight: "1px solid #374151",
+            paddingLeft: "0.5rem",
           }}
           showLineNumbers={showLineNumbers}
           style={oneDark}
         >
           {code}
         </SyntaxHighlighter>
-        {children && (
-          <div className="absolute top-2 right-2 flex items-center gap-2">
-            {children}
-          </div>
-        )}
       </div>
     </div>
   </CodeBlockContext.Provider>
@@ -135,14 +168,17 @@ export const CodeBlockCopyButton = ({
   const Icon = isCopied ? CheckIcon : CopyIcon;
 
   return (
-    <Button
-      className={cn("shrink-0", className)}
+    <button
+      className={cn(
+        "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-gray-600 transition-all hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-800",
+        className
+      )}
       onClick={copyToClipboard}
-      size="icon"
-      variant="ghost"
+      aria-label="Copy code"
       {...props}
     >
-      {children ?? <Icon size={14} />}
-    </Button>
+      <Icon size={14} />
+      {isCopied ? "Copied!" : "Copy"}
+    </button>
   );
 };
