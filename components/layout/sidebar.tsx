@@ -49,6 +49,7 @@ export function Sidebar({
   })
   const [isMobile, setIsMobile] = React.useState(false)
   const [isInitialized, setIsInitialized] = React.useState(false)
+  const [keyboardShortcut, setKeyboardShortcut] = React.useState("Ctrl + K")
 
   React.useEffect(() => {
     const checkMobile = () => {
@@ -56,6 +57,9 @@ export function Sidebar({
       setIsMobile(mobile)
       setIsInitialized(true)
     }
+    
+    // Set keyboard shortcut on client side to avoid hydration mismatch
+    setKeyboardShortcut(getKeyboardShortcut('K'))
     
     checkMobile()
     window.addEventListener('resize', checkMobile)
@@ -276,7 +280,7 @@ export function Sidebar({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder={`Search... (${getKeyboardShortcut('K')})`}
+              placeholder={`Search... (${keyboardShortcut})`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
