@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { TypewriterText } from "./typewriter-text"
 
 interface InitialMessageAreaProps {
   onStartChat?: (message: string) => void
@@ -32,8 +33,19 @@ export function InitialMessageArea({ onStartChat, className, children }: Initial
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
             Ask me about your data
           </h1>
-          <p className="text-sm md:text-base text-muted-foreground">
-            I will convert your natural language into SQL query or python script, help you execute it and create charts
+          <p className="text-sm md:text-base text-muted-foreground min-h-[1.5rem]">
+            <TypewriterText
+              texts={[
+                "I will convert your natural language into SQL query or python script, help you execute it and create charts",
+                "Ask me anything about your data and I'll generate the perfect query",
+                "Transform your questions into powerful data insights with AI",
+                "From simple questions to complex visualizations - I've got you covered"
+              ]}
+              typingSpeed={50}
+              deletingSpeed={30}
+              pauseTime={5000}
+              className="text-muted-foreground"
+            />
           </p>
         </div>
         
