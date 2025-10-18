@@ -94,20 +94,13 @@ export function Sidebar({
   }
 
   const handleNewChat = () => {
-    // Create a new chat and navigate to it
-    const newChat = createChat({
-      title: "New Chat",
-      mode: "sql",
-      chartEnabled: false
-    })
-    
-    // Navigate to the new chat
-    router.push(`/chat/${newChat.id}`)
+    // Navigate to home page to start a new conversation
+    router.push('/')
   }
 
   const handleChatClick = (chatId: string) => {
     const chat = chats.find(c => c.id === chatId)
-    if (chat) {
+    if (chat && chat.messages.length > 0) {
       setCurrentChat(chat)
       router.push(`/chat/${chatId}`)
     }

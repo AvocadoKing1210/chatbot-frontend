@@ -15,10 +15,10 @@ function ChatPageContent() {
   useEffect(() => {
     if (chatId) {
       const chat = chats.find(c => c.id === chatId)
-      if (chat) {
+      if (chat && chat.messages.length > 0) {
         setCurrentChat(chat)
       } else {
-        // Chat not found, redirect to home
+        // Chat not found or empty, redirect to home
         router.push('/')
       }
     }

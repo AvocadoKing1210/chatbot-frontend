@@ -52,6 +52,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
   const [editTitle, setEditTitle] = React.useState(chat.title)
   const [isEditingTags, setIsEditingTags] = React.useState(false)
   const [editTags, setEditTags] = React.useState(chat.tags?.join(", ") || "")
+  const [isDeletingChat, setIsDeletingChat] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(false)
   const [chartEnabled, setChartEnabled] = React.useState(chat.chartEnabled)
   const messagesEndRef = React.useRef<HTMLDivElement>(null)
@@ -129,6 +130,12 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
     const tags = editTags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
     updateChat(chat.id, { tags })
     setIsEditingTags(false)
+  }
+
+  const handleDeleteChat = () => {
+    deleteChat(chat.id)
+    router.push('/')
+    setIsDeletingChat(false)
   }
 
   const formatTimestamp = (timestamp: string) => {
@@ -256,12 +263,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 className="text-destructive"
-                onClick={() => {
-                  if (confirm('Are you sure you want to delete this chat? This action cannot be undone.')) {
-                    deleteChat(chat.id)
-                    router.push('/')
-                  }
-                }}
+                onClick={() => setIsDeletingChat(true)}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete Chat
@@ -377,6 +379,32 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
               </Button>
               <Button onClick={handleUpdateTags}>
                 Save Tags
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Chat Dialog */}
+      <Dialog open={isDeletingChat} onOpenChange={setIsDeletingChat}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Chat</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              Are you sure you want to delete "{chat.title}"? This action cannot be undone and will permanently remove all messages in this chat.
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsDeletingChat(false)}>
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={handleDeleteChat}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Chat
               </Button>
             </div>
           </div>

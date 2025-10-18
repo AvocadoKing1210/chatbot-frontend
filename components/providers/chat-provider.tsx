@@ -49,6 +49,12 @@ interface ChatProviderProps {
 export function ChatProvider({ children }: ChatProviderProps) {
   const [currentChat, setCurrentChat] = React.useState<ChatItem | null>(null)
   const [chats, setChats] = React.useState<ChatItem[]>([...pinnedChats, ...recentChats])
+  
+  // Filter out empty chats (chats with no messages) for display purposes
+  const nonEmptyChats = React.useMemo(() => 
+    chats.filter(chat => chat.messages.length > 0), 
+    [chats]
+  )
 
   // Generate mock AI responses
   const generateAIResponse = React.useCallback((userMessage: string): string => {
@@ -76,7 +82,12 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const createChat = React.useCallback((data: CreateChatData): ChatItem => {
     const newChat = createNewChat(data)
     setChats(prev => [newChat, ...prev])
-    setCurrentChat(newChat)
+    
+    // Only set as current chat if it has an initial message
+    if (data.initialMessage) {
+      setCurrentChat(newChat)
+    }
+    
     return newChat
   }, [])
 
@@ -131,7 +142,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const value: ChatContextType = {
     currentChat,
     setCurrentChat,
-    chats,
+    chats: nonEmptyChats, // Only expose non-empty chats
     setChats,
     createChat,
     addMessage,
