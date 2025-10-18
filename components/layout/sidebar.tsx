@@ -20,6 +20,7 @@ import { UserMenu } from "./user-menu"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { cn } from "@/lib/utils"
 import { pinnedChats, recentChats, folders, templates, defaultUser } from "@/data"
+import { Bot } from "lucide-react"
 
 
 interface SidebarProps {
@@ -189,10 +190,10 @@ export function Sidebar({
         {/* Header */}
         <div className="flex items-center justify-between border-b p-4">
           <div className="flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-sm">
-              <span className="text-sm font-bold">✱</span>
+            <div className="grid h-8 w-8 place-items-center rounded-full bg-foreground text-background shadow-sm">
+              <Bot className="h-4 w-4" />
             </div>
-            <span className="text-sm font-semibold">AI Assistant</span>
+            <span className="text-sm font-semibold">Data Bot</span>
           </div>
           
           <div className="flex items-center gap-1">

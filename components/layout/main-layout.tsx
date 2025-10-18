@@ -19,6 +19,7 @@ function MainLayoutContent({ className }: MainLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = React.useState(false)
   const [chartEnabled, setChartEnabled] = React.useState(false)
   const [hasActiveConversation, setHasActiveConversation] = React.useState(false)
+  const [conversationTitle, setConversationTitle] = React.useState("")
   const { selectedMode, setSelectedMode } = useMode()
 
   // Create mode options with icons
@@ -51,9 +52,21 @@ function MainLayoutContent({ className }: MainLayoutProps) {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // Update document title based on conversation state
+  React.useEffect(() => {
+    const title = hasActiveConversation && conversationTitle 
+      ? `${conversationTitle} - Data Bot`
+      : "Data Bot"
+    document.title = title
+  }, [hasActiveConversation, conversationTitle])
+
   const handleSendMessage = (message: string) => {
     console.log("Sending message:", message)
     setHasActiveConversation(true)
+    // Set conversation title from first message
+    if (!conversationTitle) {
+      setConversationTitle(message.length > 30 ? message.substring(0, 30) + "..." : message)
+    }
     // In a real app, this would send the message to the chat API
   }
 
@@ -83,10 +96,10 @@ function MainLayoutContent({ className }: MainLayoutProps) {
                 <span className="sr-only">Open sidebar</span>
               </Button>
               <div className="flex items-center gap-2">
-                <div className="grid h-6 w-6 place-items-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-sm">
-                  <span className="text-xs font-bold">✱</span>
+                <div className="grid h-6 w-6 place-items-center rounded-full bg-foreground text-background shadow-sm">
+                  <Bot className="h-3 w-3" />
                 </div>
-                <span className="text-sm font-semibold">AI Assistant</span>
+                <span className="text-sm font-semibold">Data Bot</span>
               </div>
             </div>
           </div>
@@ -125,7 +138,7 @@ function MainLayoutContent({ className }: MainLayoutProps) {
               <div className="border-b p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Bot className="h-5 w-5" />
-                  <h1 className="text-lg font-semibold">Active Chat</h1>
+                  <h1 className="text-lg font-semibold">{conversationTitle || "Data Bot"}</h1>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Updated 1 second ago · Active conversation

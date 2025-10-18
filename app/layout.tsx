@@ -14,8 +14,29 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Chatbot Assistant",
-  description: "AI-powered chatbot with modern interface",
+  title: "Data Bot",
+  description: "AI-powered data assistant that converts natural language to SQL queries and Python scripts",
+  icons: {
+    icon: [
+      {
+        url: "data:image/svg+xml;base64," + Buffer.from(`
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+            <circle cx="16" cy="16" r="16" fill="currentColor"/>
+            <svg x="4" y="4" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 8V4H8"/>
+              <rect width="16" height="12" x="4" y="8" rx="2"/>
+              <path d="M2 14h2"/>
+              <path d="M20 14h2"/>
+              <path d="M15 13v2"/>
+              <path d="M9 13v2"/>
+            </svg>
+          </svg>
+        `).toString('base64'),
+        sizes: "32x32",
+        type: "image/svg+xml",
+      }
+    ],
+  },
 };
 
 export default function RootLayout({
