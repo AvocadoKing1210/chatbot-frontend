@@ -18,7 +18,9 @@ import { Input } from "@/components/ui/input"
 import { SidebarSection } from "./sidebar-section"
 import { UserMenu } from "./user-menu"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
-import { cn } from "@/lib/utils"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Kbd } from "@/components/ui/kbd"
+import { cn, getKeyboardShortcut } from "@/lib/utils"
 import { pinnedChats, recentChats, folders, templates, defaultUser } from "@/data"
 import { Bot } from "lucide-react"
 
@@ -110,15 +112,25 @@ export function Sidebar({
         )}
       >
         <div className="flex items-center justify-center border-b p-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onToggleCollapse}
-            className="h-8 w-8"
-          >
-            <PanelLeftOpen className="h-4 w-4" />
-            <span className="sr-only">Expand sidebar</span>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onToggleCollapse}
+                className="h-8 w-8"
+              >
+                <PanelLeftOpen className="h-4 w-4" />
+                <span className="sr-only">Expand sidebar</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <div className="flex items-center gap-2">
+                <span>Expand Sidebar</span>
+                <Kbd>{getKeyboardShortcut('B')}</Kbd>
+              </div>
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         <div className="flex flex-col items-center gap-4 p-4">
@@ -130,25 +142,45 @@ export function Sidebar({
             title="New Chat"
           >
             <Plus className="h-4 w-4" />
+            <span className="sr-only">New Chat</span>
           </Button>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            title="Search"
-          >
-            <Search className="h-4 w-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+              >
+                <Search className="h-4 w-4" />
+                <span className="sr-only">Search</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <div className="flex items-center gap-2">
+                <span>Search</span>
+                <Kbd>{getKeyboardShortcut('K')}</Kbd>
+              </div>
+            </TooltipContent>
+          </Tooltip>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            title="Folders"
-          >
-            <Folder className="h-4 w-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+              >
+                <Folder className="h-4 w-4" />
+                <span className="sr-only">Folders</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <div className="flex items-center gap-2">
+                <span>Folders</span>
+              </div>
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         <div className="mt-auto p-4">
@@ -197,25 +229,45 @@ export function Sidebar({
           </div>
           
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggleCollapse}
-              className="hidden md:flex h-8 w-8"
-            >
-              <PanelLeftClose className="h-4 w-4" />
-              <span className="sr-only">Collapse sidebar</span>
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onToggleCollapse}
+                  className="hidden md:flex h-8 w-8"
+                >
+                  <PanelLeftClose className="h-4 w-4" />
+                  <span className="sr-only">Collapse sidebar</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <div className="flex items-center gap-2">
+                  <span>Collapse Sidebar</span>
+                  <Kbd>{getKeyboardShortcut('B')}</Kbd>
+                </div>
+              </TooltipContent>
+            </Tooltip>
             
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="md:hidden h-8 w-8"
-            >
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close sidebar</span>
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onClose}
+                  className="md:hidden h-8 w-8"
+                >
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close sidebar</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <div className="flex items-center gap-2">
+                  <span>Close Sidebar</span>
+                  <Kbd>Esc</Kbd>
+                </div>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
 
@@ -224,7 +276,7 @@ export function Sidebar({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search..."
+              placeholder={`Search... (${getKeyboardShortcut('K')})`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
