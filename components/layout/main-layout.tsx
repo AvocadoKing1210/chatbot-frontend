@@ -1,18 +1,37 @@
 "use client"
 
 import * as React from "react"
-import { Menu, Bot } from "lucide-react"
+import { Menu, Bot, Database, CodeXml } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sidebar } from "./sidebar"
-import { ChatInput } from "@/components/ai-elements/chat-input"
+import { ChatInput, type SelectorOption } from "@/components/ai-elements/chat-input"
+import { ModeProvider, useMode } from "@/components/providers/mode-provider"
 import { cn } from "@/lib/utils"
 
 interface MainLayoutProps {
   className?: string
 }
 
-export function MainLayout({ className }: MainLayoutProps) {
+function MainLayoutContent({ className }: MainLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = React.useState(false)
+  const [chartEnabled, setChartEnabled] = React.useState(false)
+  const { selectedMode, setSelectedMode } = useMode()
+
+  // Mode options for SQL and Python Script modes
+  const modeOptions: SelectorOption[] = [
+    { 
+      id: "sql", 
+      name: "SQL", 
+      description: "Generate and execute SQL queries",
+      icon: <Database className="w-4 h-4" />
+    },
+    { 
+      id: "python", 
+      name: "Python", 
+      description: "Generate and run Python scripts",
+      icon: <CodeXml className="w-4 h-4" />
+    },
+  ]
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false)
   const [isMobile, setIsMobile] = React.useState(false)
 
@@ -112,11 +131,35 @@ export function MainLayout({ className }: MainLayoutProps) {
           <div className="border-t p-4">
             <ChatInput
               onSend={handleSendMessage}
-              placeholder="How can I help you today?"
+              placeholder={
+                selectedMode === "sql" 
+                  ? chartEnabled 
+                    ? "Ask me to write SQL queries and create charts automatically..." 
+                    : "Ask me to write SQL queries..."
+                  : chartEnabled 
+                    ? "Ask me to write Python scripts and create charts automatically..." 
+                    : "Ask me to write Python scripts..."
+              }
+              showSelector={true}
+              selectorOptions={modeOptions}
+              selectedValue={selectedMode}
+              onSelectorChange={(value) => setSelectedMode(value as "sql" | "python")}
+              selectorLabel="Select Mode"
+              showChart={true}
+              chartEnabled={chartEnabled}
+              onChartToggle={setChartEnabled}
             />
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+export function MainLayout({ className }: MainLayoutProps) {
+  return (
+    <ModeProvider defaultMode="sql">
+      <MainLayoutContent className={className} />
+    </ModeProvider>
   )
 }
