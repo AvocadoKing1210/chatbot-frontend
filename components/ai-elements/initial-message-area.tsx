@@ -12,14 +12,30 @@ interface InitialMessageAreaProps {
 export function InitialMessageArea({ onStartChat, className, children }: InitialMessageAreaProps) {
   return (
     <div className={cn("flex flex-col items-center justify-center h-full px-4", className)}>
-      <div className="text-center space-y-8 max-w-2xl w-full">
-        {/* Title */}
-        <h1 className="font-heading text-pretty text-center font-semibold tracking-tighter text-foreground sm:text-[32px] md:text-[46px] text-[29px]">
-          Ask me anything about your data
-        </h1>
-        <h2 className="-mt-4 -mb-4 text-center text-[clamp(12px,3.5vw,20px)] sm:text-[20px] text-muted-foreground pb-12 whitespace-nowrap sm:whitespace-normal leading-tight tracking-tight">
-          I'll convert your questions into SQL or Python and create visualizations automatically.
-        </h2>
+      <div className="text-center space-y-8 max-w-2xl w-full relative">
+        {/* Irregular Grid Background - positioned closely around content */}
+        <div className="absolute -inset-8 opacity-40">
+          <div 
+            className="w-full h-full"
+            style={{
+              backgroundImage: `
+                linear-gradient(rgba(0, 0, 0, 0.15) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 0, 0, 0.15) 1px, transparent 1px)
+              `,
+              backgroundSize: '20px 20px',
+              clipPath: 'polygon(0% 15%, 15% 0%, 85% 0%, 100% 20%, 100% 80%, 85% 100%, 15% 100%, 0% 85%)'
+            }}
+          />
+        </div>
+        {/* Title and Subtitle */}
+        <div className="space-y-4">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+            Ask me about your data
+          </h1>
+          <p className="text-sm md:text-base text-muted-foreground">
+            I will convert your natural language into SQL query or python script, help you execute it and create charts
+          </p>
+        </div>
         
         {/* Input Component */}
         {children}

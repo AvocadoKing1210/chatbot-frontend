@@ -60,6 +60,19 @@ export function Sidebar({
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // Lock body scroll when mobile sidebar is open
+  React.useEffect(() => {
+    if (isMobile && isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [isMobile, isOpen])
+
 
   const toggleSection = (section: keyof typeof collapsedSections) => {
     setCollapsedSections(prev => ({
@@ -168,8 +181,8 @@ export function Sidebar({
         }}
         transition={{ type: "spring", stiffness: 260, damping: 28 }}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-full flex-col border-r bg-background",
-          !isMobile && "relative",
+          "flex h-full flex-col border-r bg-background",
+          isMobile ? "fixed inset-y-0 left-0 z-50" : "relative",
           className
         )}
       >
