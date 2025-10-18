@@ -111,12 +111,14 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
         const messageId = addMessage(chat.id, aiResponse, 'assistant')
         
         // Mark the new AI message for streaming
-        setStreamingMessages(prev => new Set(prev).add(messageId))
+        if (messageId) {
+          setStreamingMessages(prev => new Set(prev).add(messageId))
+        }
         
         setIsLoading(false)
       }, 1000 + Math.random() * 2000)
     }
-  }, [chat.id, chat.messages, generateAIResponse, addMessage]) // Dependencies for initial message handling
+  }, [chat.id]) // Only depend on chat.id to prevent re-running on message changes
 
   // Memoize messages to prevent unnecessary re-renders
   const memoizedMessages = React.useMemo(() => chat.messages, [chat.messages])
@@ -132,7 +134,9 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
       const messageId = addMessage(chat.id, aiResponse, 'assistant')
       
       // Mark the new AI message for streaming
-      setStreamingMessages(prev => new Set(prev).add(messageId))
+      if (messageId) {
+        setStreamingMessages(prev => new Set(prev).add(messageId))
+      }
       
       setIsLoading(false)
     }, 1000 + Math.random() * 2000) // 1-3 second delay
@@ -196,7 +200,9 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
           const newMessageId = addMessage(chat.id, aiResponse, 'assistant')
           
           // Mark the regenerated message for streaming
-          setStreamingMessages(prev => new Set(prev).add(newMessageId))
+          if (newMessageId) {
+            setStreamingMessages(prev => new Set(prev).add(newMessageId))
+          }
         }, 500)
       }
     }
@@ -230,6 +236,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
     
     return (
       <div
+        key={message.id}
         className={cn(
           "flex gap-3 p-4",
           isUser ? "justify-end" : "justify-start"
@@ -259,6 +266,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
               </div>
             ) : (
               <StreamingResponse
+                key={message.id} // Use stable key to prevent unnecessary re-mounts
                 content={message.content}
                 isStreaming={isStreaming}
                 onStreamComplete={() => handleStreamComplete(message.id)}

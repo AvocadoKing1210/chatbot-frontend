@@ -20,22 +20,30 @@ export function StreamingResponse({
   const [displayedContent, setDisplayedContent] = React.useState("")
   const [isComplete, setIsComplete] = React.useState(false)
 
-  // Reset when content changes (new message)
+  // Handle streaming logic
   React.useEffect(() => {
     if (!isStreaming) {
-      // For existing messages, show immediately
+      // For existing messages, show immediately without streaming
       setDisplayedContent(content)
       setIsComplete(true)
       return
     }
 
-    // For new messages, start streaming
+    // For new messages that should stream, start the streaming effect
     setDisplayedContent("")
     setIsComplete(false)
     
     // Split content into tokens (words and punctuation)
     const tokens = content.split(/(\s+|[.,!?;:])/).filter(token => token.length > 0)
     let currentIndex = 0
+
+    // If no tokens, show content immediately
+    if (tokens.length === 0) {
+      setDisplayedContent(content)
+      setIsComplete(true)
+      onStreamComplete?.()
+      return
+    }
 
     const streamInterval = setInterval(() => {
       if (currentIndex < tokens.length) {
