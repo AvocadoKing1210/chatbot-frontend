@@ -135,6 +135,29 @@ export const recentChats: ChatItem[] = [
       }
     ]
   },
+  {
+    id: "5",
+    title: "Query & Chart Test",
+    preview: "Test SQL execution and chart generation",
+    updatedAt: "2024-01-18T12:00:00Z",
+    tags: ["test", "sql", "charts"],
+    mode: "sql",
+    chartEnabled: true,
+    messages: [
+      {
+        id: "5-1",
+        content: "Show me the average sales in 2020 for bikes",
+        role: "user",
+        timestamp: "2024-01-18T12:00:00Z"
+      },
+      {
+        id: "5-2",
+        content: "Here's a SQL query you can run to test the execution and chart flow using mock data. Click Execute below the code block, then optionally Generate chart.\n\n```sql\n-- Demo query for mock execution\nSELECT id, name, created_at\nFROM users\nLIMIT 3;\n```\n\nThis will render a table with mock rows and, if chart is enabled, embed the Superset chart.",
+        role: "assistant",
+        timestamp: "2024-01-18T12:00:10Z"
+      }
+    ]
+  },
 ]
 
 // Utility functions for chat management

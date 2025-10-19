@@ -1,18 +1,22 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import React, { type ComponentProps, memo } from "react";
+import React, { type ComponentProps, memo, useState } from "react";
 import { Streamdown } from "streamdown";
 import { InlineCode } from "./inline-code";
 import { CodeBlock, CodeBlockCopyButton } from "./code-block";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Play, Loader2 } from "lucide-react";
+import { ExecutionTool } from "./execution-tool";
+import { ChartTool } from "./chart-tool";
 
-type ResponseProps = ComponentProps<typeof Streamdown>;
+type ResponseProps = ComponentProps<typeof Streamdown> & {
+  chartEnabled?: boolean;
+};
 
 export const Response = memo(
-  ({ className, ...props }: ResponseProps) => (
+  ({ className, chartEnabled, ...props }: ResponseProps) => (
     <Streamdown
       className={cn(
         "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
@@ -141,17 +145,60 @@ export const Response = memo(
               }
             }
             
-            return (
-              <CodeBlock 
-                code={codeContent}
-                language={language}
-                filename={filename}
-                showLineNumbers={true}
-                {...props}
-              >
-                <CodeBlockCopyButton />
-              </CodeBlock>
-            )
+            const mode = language.toLowerCase().startsWith('py') ? 'python' : language.toLowerCase().startsWith('sql') ? 'sql' : 'sql'
+
+            const CodeWithActions: React.FC = () => {
+              const [showExec, setShowExec] = useState(false)
+              const [showChart, setShowChart] = useState(false)
+              const [isExecuting, setIsExecuting] = useState(false)
+              return (
+                <div className="space-y-3">
+                  <CodeBlock 
+                    code={codeContent}
+                    language={language}
+                    filename={filename}
+                    showLineNumbers={true}
+                    {...props}
+                  >
+                    <CodeBlockCopyButton iconOnly />
+                    <button
+                      className="flex h-8 w-8 items-center justify-center rounded-md text-gray-600 transition-all hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => {
+                        setShowExec(true)
+                        setIsExecuting(true)
+                      }}
+                      disabled={isExecuting}
+                      aria-label={isExecuting ? "Executing..." : "Execute"}
+                      title={isExecuting ? "Executing..." : "Execute"}
+                    >
+                      {isExecuting ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Play size={14} />
+                      )}
+                    </button>
+                  </CodeBlock>
+                  {showExec && (
+                    <>
+                      <ExecutionTool 
+                        mode={mode as 'sql' | 'python'} 
+                        code={codeContent} 
+                        autoRun={true}
+                        onSuccess={() => {
+                          setIsExecuting(false)
+                          if (chartEnabled) {
+                            setShowChart(true)
+                          }
+                        }}
+                      />
+                      {showChart && <ChartTool autoRun={true} />}
+                    </>
+                  )}
+                </div>
+              )
+            }
+
+            return <CodeWithActions />
           }
           // Inline code
           return <InlineCode className={className} {...props}>{children}</InlineCode>
@@ -184,17 +231,60 @@ export const Response = memo(
                 filename = fileMatch[1].trim()
               }
             }
-            
-            return (
-              <CodeBlock 
-                code={codeContent}
-                language={language}
-                filename={filename}
-                showLineNumbers={true}
-              >
-                <CodeBlockCopyButton />
-              </CodeBlock>
-            )
+
+            const mode = language.toLowerCase().startsWith('py') ? 'python' : language.toLowerCase().startsWith('sql') ? 'sql' : 'sql'
+
+            const CodeWithActions: React.FC = () => {
+              const [showExec, setShowExec] = useState(false)
+              const [showChart, setShowChart] = useState(false)
+              const [isExecuting, setIsExecuting] = useState(false)
+              return (
+                <div className="space-y-3">
+                  <CodeBlock 
+                    code={codeContent}
+                    language={language}
+                    filename={filename}
+                    showLineNumbers={true}
+                  >
+                    <CodeBlockCopyButton iconOnly />
+                    <button
+                      className="flex h-8 w-8 items-center justify-center rounded-md text-gray-600 transition-all hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => {
+                        setShowExec(true)
+                        setIsExecuting(true)
+                      }}
+                      disabled={isExecuting}
+                      aria-label={isExecuting ? "Executing..." : "Execute"}
+                      title={isExecuting ? "Executing..." : "Execute"}
+                    >
+                      {isExecuting ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Play size={14} />
+                      )}
+                    </button>
+                  </CodeBlock>
+                  {showExec && (
+                    <>
+                      <ExecutionTool 
+                        mode={mode as 'sql' | 'python'} 
+                        code={codeContent} 
+                        autoRun={true}
+                        onSuccess={() => {
+                          setIsExecuting(false)
+                          if (chartEnabled) {
+                            setShowChart(true)
+                          }
+                        }}
+                      />
+                      {showChart && <ChartTool autoRun={true} />}
+                    </>
+                  )}
+                </div>
+              )
+            }
+
+            return <CodeWithActions />
           }
           return <pre {...props}>{children}</pre>
         }

@@ -135,12 +135,14 @@ export type CodeBlockCopyButtonProps = ComponentProps<typeof Button> & {
   onCopy?: () => void;
   onError?: (error: Error) => void;
   timeout?: number;
+  iconOnly?: boolean;
 };
 
 export const CodeBlockCopyButton = ({
   onCopy,
   onError,
   timeout = 2000,
+  iconOnly = false,
   children,
   className,
   ...props
@@ -169,15 +171,18 @@ export const CodeBlockCopyButton = ({
   return (
     <button
       className={cn(
-        "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-gray-600 transition-all hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-800",
+        iconOnly
+          ? "flex h-8 w-8 items-center justify-center rounded-md text-gray-600 transition-all hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-800"
+          : "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-gray-600 transition-all hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-800",
         className
       )}
       onClick={copyToClipboard}
       aria-label="Copy code"
+      title={isCopied ? "Copied!" : "Copy"}
       {...props}
     >
       <Icon size={14} />
-      {isCopied ? "Copied!" : "Copy"}
+      {!iconOnly && (isCopied ? "Copied!" : "Copy")}
     </button>
   );
 };

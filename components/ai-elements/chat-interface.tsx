@@ -343,8 +343,8 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
             )}
           </div>
           
-          {/* Actions and timestamp row */}
-          {!isUser && (
+          {/* Actions and timestamp row - only show for non-streaming content */}
+          {!isUser && !isStreaming && (
             <MessageActionsWrapper
               messageId={message.id}
               messageContent={message.content}

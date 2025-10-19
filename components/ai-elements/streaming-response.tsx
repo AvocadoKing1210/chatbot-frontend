@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Response } from "./response"
+import { useChat } from "@/components/providers/chat-provider"
 import { cn } from "@/lib/utils"
 
 interface StreamingResponseProps {
@@ -19,6 +20,7 @@ export function StreamingResponse({
   onStreamComplete,
   shouldStop = false
 }: StreamingResponseProps) {
+  const { currentChat } = useChat()
   const [displayedContent, setDisplayedContent] = React.useState("")
   const [isComplete, setIsComplete] = React.useState(false)
   const intervalRef = React.useRef<number | null>(null)
@@ -91,7 +93,7 @@ export function StreamingResponse({
   if (!isStreaming) {
     return (
       <div className={cn("relative text-sm", className)}>
-        <Response>
+        <Response chartEnabled={!!currentChat?.chartEnabled}>
           {content}
         </Response>
       </div>
@@ -100,7 +102,7 @@ export function StreamingResponse({
 
   return (
     <div className={cn("relative text-sm", className)}>
-      <Response>
+      <Response chartEnabled={!!currentChat?.chartEnabled}>
         {displayedContent + (!isComplete ? "▋" : "")}
       </Response>
     </div>

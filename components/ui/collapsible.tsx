@@ -20,11 +20,14 @@ function CollapsibleTrigger({
 }
 
 function CollapsibleContent({
+  forceMount,
   ...props
 }: React.ComponentProps<typeof CollapsiblePrimitive.CollapsibleContent>) {
   return (
     <CollapsiblePrimitive.CollapsibleContent
       data-slot="collapsible-content"
+      // Keep content mounted to avoid iframe reloads on toggle
+      forceMount={forceMount ?? true}
       {...props}
     />
   )
