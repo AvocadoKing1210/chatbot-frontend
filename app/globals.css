@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@source "../node_modules/streamdown/dist/index.js";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -143,5 +144,10 @@
       linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
     background-size: 24px 24px;
+  }
+
+  /* Override react-syntax-highlighter line number italic styling */
+  .react-syntax-highlighter-line-number {
+    font-style: normal !important;
   }
 }

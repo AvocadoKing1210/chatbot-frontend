@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { 
   PanelLeftClose, 
@@ -21,7 +22,9 @@ import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Kbd } from "@/components/ui/kbd"
 import { cn, getKeyboardShortcut } from "@/lib/utils"
-import { pinnedChats, recentChats, folders, templates, defaultUser } from "@/data"
+import { folders, templates } from "@/data"
+import { useChat } from "@/components/providers/chat-provider"
+import { ChatListItem } from "@/components/ai-elements/chat-list-item"
 import { Bot } from "lucide-react"
 
 
@@ -50,6 +53,8 @@ export function Sidebar({
   const [isMobile, setIsMobile] = React.useState(false)
   const [isInitialized, setIsInitialized] = React.useState(false)
   const [keyboardShortcut, setKeyboardShortcut] = React.useState("Ctrl + K")
+  const { chats, createChat, setCurrentChat } = useChat()
+  const router = useRouter()
 
   React.useEffect(() => {
     const checkMobile = () => {
@@ -89,8 +94,16 @@ export function Sidebar({
   }
 
   const handleNewChat = () => {
-    // In a real app, this would create a new chat
-    console.log("Creating new chat...")
+    // Navigate to home page to start a new conversation
+    router.push('/')
+  }
+
+  const handleChatClick = (chatId: string) => {
+    const chat = chats.find(c => c.id === chatId)
+    if (chat && chat.messages.length > 0) {
+      setCurrentChat(chat)
+      router.push(`/chat/${chatId}`)
+    }
   }
 
   const handleLogout = () => {
@@ -301,7 +314,7 @@ export function Sidebar({
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-4 space-y-4">
+        <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-4">
           {/* Pinned Chats */}
           <SidebarSection
             title="PINNED CHATS"
@@ -309,21 +322,17 @@ export function Sidebar({
             collapsed={collapsedSections.pinned}
             onToggle={() => toggleSection("pinned")}
           >
-            {pinnedChats.length === 0 ? (
+            {chats.filter(chat => chat.pinned).length === 0 ? (
               <div className="rounded-lg border border-dashed border-muted-foreground/25 p-3 text-center text-xs text-muted-foreground">
                 Pin important chats for quick access.
               </div>
             ) : (
-              pinnedChats.map((chat) => (
-                <div
+              chats.filter(chat => chat.pinned).map((chat) => (
+                <ChatListItem
                   key={chat.id}
-                  className="rounded-lg p-2 text-sm hover:bg-accent cursor-pointer transition-all duration-200 hover:scale-[1.02]"
-                >
-                  <div className="font-medium truncate">{chat.title}</div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {chat.preview}
-                  </div>
-                </div>
+                  chat={chat}
+                  onClick={handleChatClick}
+                />
               ))
             )}
           </SidebarSection>
@@ -335,22 +344,21 @@ export function Sidebar({
             collapsed={collapsedSections.recent}
             onToggle={() => toggleSection("recent")}
           >
-            {recentChats.length === 0 ? (
+            {chats.filter(chat => !chat.pinned).length === 0 ? (
               <div className="rounded-lg border border-dashed border-muted-foreground/25 p-3 text-center text-xs text-muted-foreground">
                 No conversations yet. Start a new one!
               </div>
             ) : (
-              recentChats.map((chat) => (
-                <div
-                  key={chat.id}
-                  className="rounded-lg p-2 text-sm hover:bg-accent cursor-pointer transition-all duration-200 hover:scale-[1.02]"
-                >
-                  <div className="font-medium truncate">{chat.title}</div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {chat.preview}
-                  </div>
-                </div>
-              ))
+              chats
+                .filter(chat => !chat.pinned)
+                .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+                .map((chat) => (
+                  <ChatListItem
+                    key={chat.id}
+                    chat={chat}
+                    onClick={handleChatClick}
+                  />
+                ))
             )}
           </SidebarSection>
 
