@@ -39,6 +39,9 @@ interface ChatInputProps {
   showChart?: boolean
   chartEnabled?: boolean
   onChartToggle?: (enabled: boolean) => void
+  submitStatus?: import("ai").ChatStatus
+  onStop?: () => void
+  inputDisabled?: boolean
 }
 
 /**
@@ -58,7 +61,11 @@ export function ChatInput({
   showChart = false,
   chartEnabled = false,
   onChartToggle,
+  submitStatus,
+  onStop,
+  inputDisabled,
 }: ChatInputProps) {
+  const textareaDisabled = inputDisabled ?? disabled
   return (
     <div className={cn("w-full", className)}>
       <PromptInput
@@ -70,7 +77,7 @@ export function ChatInput({
       >
         <PromptInputTextarea 
           placeholder={placeholder}
-          disabled={disabled}
+          disabled={textareaDisabled}
         />
         <PromptInputFooter>
           <PromptInputTools>
@@ -129,7 +136,11 @@ export function ChatInput({
               </PromptInputModelSelect>
             )}
           </PromptInputTools>
-          <PromptInputSubmit disabled={disabled} />
+          <PromptInputSubmit 
+            disabled={submitStatus === "streaming" ? false : disabled}
+            status={submitStatus}
+            onStop={onStop}
+          />
         </PromptInputFooter>
       </PromptInput>
       

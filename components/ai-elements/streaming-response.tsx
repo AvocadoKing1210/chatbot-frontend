@@ -9,16 +9,19 @@ interface StreamingResponseProps {
   isStreaming?: boolean
   className?: string
   onStreamComplete?: () => void
+  shouldStop?: boolean
 }
 
 export function StreamingResponse({ 
   content, 
   isStreaming = false, 
   className,
-  onStreamComplete 
+  onStreamComplete,
+  shouldStop = false
 }: StreamingResponseProps) {
   const [displayedContent, setDisplayedContent] = React.useState("")
   const [isComplete, setIsComplete] = React.useState(false)
+  const intervalRef = React.useRef<number | null>(null)
 
   // Handle streaming logic
   React.useEffect(() => {
@@ -45,19 +48,44 @@ export function StreamingResponse({
       return
     }
 
-    const streamInterval = setInterval(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+
+    intervalRef.current = window.setInterval(() => {
       if (currentIndex < tokens.length) {
         setDisplayedContent(prev => prev + tokens[currentIndex])
         currentIndex++
       } else {
         setIsComplete(true)
         onStreamComplete?.()
-        clearInterval(streamInterval)
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current)
+          intervalRef.current = null
+        }
       }
     }, 50) // Adjust speed as needed
 
-    return () => clearInterval(streamInterval)
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
   }, [content, isStreaming, onStreamComplete])
+
+  // Handle external stop signal
+  React.useEffect(() => {
+    if (isStreaming && !isComplete && shouldStop) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+      setIsComplete(true)
+      onStreamComplete?.()
+    }
+  }, [shouldStop, isStreaming, isComplete, onStreamComplete])
 
   // If not streaming, show content immediately
   if (!isStreaming) {

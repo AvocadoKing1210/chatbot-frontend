@@ -66,8 +66,26 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
   const [chartEnabled, setChartEnabled] = React.useState(chat.chartEnabled)
   const [messageFeedback, setMessageFeedback] = React.useState<Record<string, 'liked' | 'disliked' | null>>({})
   const [streamingMessages, setStreamingMessages] = React.useState<Set<string>>(new Set())
+  const [stoppedMessageIds, setStoppedMessageIds] = React.useState<Set<string>>(new Set())
   const messagesEndRef = React.useRef<HTMLDivElement>(null)
   const initialMessageProcessedRef = React.useRef(false)
+  const pendingTimeoutsRef = React.useRef<Set<number>>(new Set())
+
+  const clearAllPendingTimeouts = React.useCallback(() => {
+    pendingTimeoutsRef.current.forEach((id) => clearTimeout(id))
+    pendingTimeoutsRef.current.clear()
+  }, [])
+
+  const stopAllStreaming = React.useCallback(() => {
+    // Mark all currently streaming messages as stopped so their StreamingResponse stops immediately
+    setStoppedMessageIds(prev => {
+      const next = new Set(prev)
+      streamingMessages.forEach(id => next.add(id))
+      return next
+    })
+    // Also stop loading indicator
+    setIsLoading(false)
+  }, [streamingMessages])
 
   // Create mode options with icons
   const modeOptions: SelectorOption[] = React.useMemo(() => {
@@ -98,6 +116,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
     setChartEnabled(chat.chartEnabled)
     // Clear any streaming messages on mount - existing messages should not stream
     setStreamingMessages(new Set())
+    setStoppedMessageIds(new Set())
     
     // Check if this is a new chat with only a user message (needs AI response)
     const hasOnlyUserMessage = chat.messages.length === 1 && chat.messages[0].role === 'user'
@@ -107,7 +126,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
       const userMessage = chat.messages[0].content
       setIsLoading(true)
       
-      setTimeout(() => {
+      const timeoutId = window.setTimeout(() => {
         const aiResponse = generateAIResponse(userMessage)
         const messageId = addMessage(chat.id, aiResponse, 'assistant')
         
@@ -117,7 +136,9 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
         }
         
         setIsLoading(false)
+        pendingTimeoutsRef.current.delete(timeoutId)
       }, 1000 + Math.random() * 2000)
+      pendingTimeoutsRef.current.add(timeoutId)
     }
   }, [chat.id]) // Only depend on chat.id to prevent re-running on message changes
 
@@ -125,12 +146,18 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
   const memoizedMessages = React.useMemo(() => chat.messages, [chat.messages])
 
   const handleSendMessage = async (message: string) => {
+    // If there's an ongoing stream or pending response, stop/clear them first
+    if (streamingMessages.size > 0 || pendingTimeoutsRef.current.size > 0) {
+      stopAllStreaming()
+      clearAllPendingTimeouts()
+    }
     // Add user message
     addMessage(chat.id, message, 'user')
     setIsLoading(true)
+    // Do not clear stopped ids immediately to ensure StreamingResponse receives the stop signal
 
     // Simulate AI response delay
-    setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
       const aiResponse = generateAIResponse(message)
       const messageId = addMessage(chat.id, aiResponse, 'assistant')
       
@@ -140,7 +167,14 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
       }
       
       setIsLoading(false)
+      pendingTimeoutsRef.current.delete(timeoutId)
     }, 1000 + Math.random() * 2000) // 1-3 second delay
+    pendingTimeoutsRef.current.add(timeoutId)
+  }
+
+  const handleStop = () => {
+    stopAllStreaming()
+    clearAllPendingTimeouts()
   }
 
   const handleModeChange = (mode: string) => {
@@ -196,7 +230,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
           c.id === chat.id ? { ...c, messages: updatedMessages } : c
         ))
         // Trigger regeneration
-        setTimeout(() => {
+        const timeoutId = window.setTimeout(() => {
           const aiResponse = generateAIResponse(previousMessage.content)
           const newMessageId = addMessage(chat.id, aiResponse, 'assistant')
           
@@ -204,7 +238,9 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
           if (newMessageId) {
             setStreamingMessages(prev => new Set(prev).add(newMessageId))
           }
+          pendingTimeoutsRef.current.delete(timeoutId)
         }, 500)
+        pendingTimeoutsRef.current.add(timeoutId)
       }
     }
   }
@@ -239,7 +275,20 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
       newSet.delete(messageId)
       return newSet
     })
+    // Clean up stop flag for this message to avoid accumulation
+    setStoppedMessageIds(prev => {
+      const next = new Set(prev)
+      next.delete(messageId)
+      return next
+    })
   }
+
+  // Cleanup any pending timeouts on unmount
+  React.useEffect(() => {
+    return () => {
+      clearAllPendingTimeouts()
+    }
+  }, [clearAllPendingTimeouts])
 
   // Separate component for message actions to isolate feedback state
   const MessageActionsWrapper = React.memo(({ messageId, messageContent, timestamp }: { 
@@ -262,9 +311,12 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
     )
   })
 
-  const MessageBubble = React.memo(({ message }: { message: Message }) => {
+  const MessageBubble = React.memo(({
+    message,
+    isStreaming,
+    isStopped
+  }: { message: Message; isStreaming: boolean; isStopped: boolean }) => {
     const isUser = message.role === 'user'
-    const isStreaming = streamingMessages.has(message.id)
     
     return (
       <div
@@ -302,6 +354,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
                 content={message.content}
                 isStreaming={isStreaming}
                 onStreamComplete={() => handleStreamComplete(message.id)}
+                shouldStop={isStopped}
               />
             )}
           </div>
@@ -341,7 +394,9 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
       prevProps.message.id === nextProps.message.id &&
       prevProps.message.content === nextProps.message.content &&
       prevProps.message.role === nextProps.message.role &&
-      prevProps.message.timestamp === nextProps.message.timestamp
+      prevProps.message.timestamp === nextProps.message.timestamp &&
+      prevProps.isStreaming === nextProps.isStreaming &&
+      prevProps.isStopped === nextProps.isStopped
     )
   })
 
@@ -458,7 +513,12 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
       {/* Messages Area - Scrollable */}
       <div className="flex-1 overflow-y-auto min-h-0">
         {memoizedMessages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble 
+            key={message.id} 
+            message={message} 
+            isStreaming={streamingMessages.has(message.id)} 
+            isStopped={stoppedMessageIds.has(message.id)} 
+          />
         ))}
         
         {isLoading && (
@@ -487,6 +547,9 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
       <div className="flex-shrink-0 border-t p-4">
         <ChatInput
           onSend={handleSendMessage}
+          submitStatus={streamingMessages.size > 0 ? "streaming" : isLoading ? "submitted" : undefined}
+          onStop={handleStop}
+          inputDisabled={isLoading && streamingMessages.size === 0}
           placeholder={
             selectedMode === "sql" 
               ? chartEnabled 
