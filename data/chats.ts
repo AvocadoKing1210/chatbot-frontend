@@ -105,7 +105,16 @@ export const recentChats: ChatItem[] = [
     title: "Data Analysis with Tables",
     preview: "Analyzing sales data and creating visualizations...",
     updatedAt: "2024-01-12T14:15:00Z",
-    tags: ["data-analysis", "tables", "charts"],
+    tags: [
+      "data-analysis",
+      "tables",
+      "charts",
+      "longer-tag-here",
+      "insights",
+      "dashboard",
+      "performance",
+      "metrics"
+    ],
     mode: "sql",
     chartEnabled: true,
     messages: [
@@ -140,7 +149,7 @@ export const recentChats: ChatItem[] = [
     title: "Query & Chart Test",
     preview: "Test SQL execution and chart generation",
     updatedAt: "2024-01-18T12:00:00Z",
-    tags: ["test", "sql", "charts"],
+    tags: ["test", "sql", "charts", "benchmarks", "optimizations", "longlonglongtag"],
     mode: "sql",
     chartEnabled: true,
     messages: [
