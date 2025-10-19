@@ -39,6 +39,7 @@ import { ChatInput } from "./chat-input"
 import { Actions, Action } from "./actions"
 import { CopyButton } from "@/components/ui/copy-button"
 import { StreamingResponse } from "./streaming-response"
+import { Conversation, ConversationContent, ConversationScrollButton } from "./conversation"
 import { MessageActions } from "./message-actions"
 import { Shimmer } from "./shimmer"
 import { useChat } from "@/components/providers/chat-provider"
@@ -102,13 +103,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
     }))
   }, [])
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
-
-  React.useEffect(() => {
-    scrollToBottom()
-  }, [chat.messages])
+  // Stick-to-bottom is handled by Conversation; no manual scroll effect needed
 
   // Initialize mode and chart settings from chat data (only on mount)
   React.useEffect(() => {
@@ -246,21 +241,10 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
   }
 
   const handleMessageFeedback = (messageId: string, feedback: 'liked' | 'disliked') => {
-    // Store current scroll position before state change
-    const messagesContainer = messagesEndRef.current?.parentElement
-    const scrollTop = messagesContainer?.scrollTop || 0
-    
     setMessageFeedback(prev => ({
       ...prev,
       [messageId]: prev[messageId] === feedback ? null : feedback
     }))
-    
-    // Restore scroll position after state change
-    requestAnimationFrame(() => {
-      if (messagesContainer) {
-        messagesContainer.scrollTop = scrollTop
-      }
-    })
   }
 
 
@@ -510,38 +494,39 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
         )}
       </div>
 
-      {/* Messages Area - Scrollable */}
-      <div className="flex-1 overflow-y-auto min-h-0">
-        {memoizedMessages.map((message) => (
-          <MessageBubble 
-            key={message.id} 
-            message={message} 
-            isStreaming={streamingMessages.has(message.id)} 
-            isStopped={stoppedMessageIds.has(message.id)} 
-          />
-        ))}
-        
-        {isLoading && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex gap-3 p-4"
-          >
-            <div className="flex-shrink-0">
-              <div className="grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground">
-                <Bot className="h-4 w-4" />
+      {/* Messages Area - Stick-to-bottom */}
+      <Conversation className="flex-1 min-h-0">
+        <ConversationContent>
+          {memoizedMessages.map((message) => (
+            <MessageBubble 
+              key={message.id} 
+              message={message} 
+              isStreaming={streamingMessages.has(message.id)} 
+              isStopped={stoppedMessageIds.has(message.id)} 
+            />
+          ))}
+
+          {isLoading && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex gap-3 p-4"
+            >
+              <div className="flex-shrink-0">
+                <div className="grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground">
+                  <Bot className="h-4 w-4" />
+                </div>
               </div>
-            </div>
-            <div className="rounded-lg px-4 py-2">
-              <Shimmer className="text-sm">
-                AI is thinking...
-              </Shimmer>
-            </div>
-          </motion.div>
-        )}
-        
-        <div ref={messagesEndRef} />
-      </div>
+              <div className="rounded-lg px-4 py-2">
+                <Shimmer className="text-sm">
+                  AI is thinking...
+                </Shimmer>
+              </div>
+            </motion.div>
+          )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
 
       {/* Chat Input - Fixed */}
       <div className="flex-shrink-0 border-t p-4">

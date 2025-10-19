@@ -119,7 +119,6 @@ export const CodeBlock = ({
             minWidth: "2rem",
             textAlign: "right",
             userSelect: "none",
-            borderRight: "1px solid #374151",
             paddingLeft: "0.5rem",
           }}
           showLineNumbers={showLineNumbers}
