@@ -49,6 +49,7 @@ import { modeConfig } from "@/data"
 import { Database, CodeXml } from "lucide-react"
 import type { SelectorOption } from "@/components/ai-elements/chat-input"
 import { cn } from "@/lib/utils"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface ChatInterfaceProps {
   chat: ChatItem
@@ -58,6 +59,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
   const router = useRouter()
   const { addMessage, updateChat, deleteChat, generateAIResponse, setChats } = useChat()
   const { selectedMode, setSelectedMode } = useMode()
+  const isMobile = useIsMobile()
   const [isEditingTitle, setIsEditingTitle] = React.useState(false)
   const [editTitle, setEditTitle] = React.useState(chat.title)
   const [isEditingTags, setIsEditingTags] = React.useState(false)
@@ -301,6 +303,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
     isStopped
   }: { message: Message; isStreaming: boolean; isStopped: boolean }) => {
     const isUser = message.role === 'user'
+    const isMobile = useIsMobile()
     
     return (
       <div
@@ -310,7 +313,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
           isUser ? "justify-end" : "justify-start"
         )}
       >
-        {!isUser && (
+        {!isUser && !isMobile && (
           <div className="flex-shrink-0">
             <div className="grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground">
               <Bot className="h-4 w-4" />
@@ -319,7 +322,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
         )}
         
         <div className={cn(
-          "max-w-[90%]",
+          isMobile ? "w-full" : "max-w-[90%]",
           isUser ? "ml-auto" : ""
         )}>
           <div className={cn(
@@ -343,8 +346,8 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
             )}
           </div>
           
-          {/* Actions and timestamp row */}
-          {!isUser && (
+          {/* Actions and timestamp row - only show for non-streaming content */}
+          {!isUser && !isStreaming && (
             <MessageActionsWrapper
               messageId={message.id}
               messageContent={message.content}
@@ -362,7 +365,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
           )}
         </div>
 
-        {isUser && (
+        {isUser && !isMobile && (
           <div className="flex-shrink-0">
             <div className="grid h-8 w-8 place-items-center rounded-full bg-muted">
               <User className="h-4 w-4" />
@@ -512,12 +515,17 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
               animate={{ opacity: 1, y: 0 }}
               className="flex gap-3 p-4"
             >
-              <div className="flex-shrink-0">
-                <div className="grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground">
-                  <Bot className="h-4 w-4" />
+              {!isMobile && (
+                <div className="flex-shrink-0">
+                  <div className="grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground">
+                    <Bot className="h-4 w-4" />
+                  </div>
                 </div>
-              </div>
-              <div className="rounded-lg px-4 py-2">
+              )}
+              <div className={cn(
+                "rounded-lg px-4 py-2",
+                isMobile ? "w-full" : ""
+              )}>
                 <Shimmer className="text-sm">
                   AI is thinking...
                 </Shimmer>
