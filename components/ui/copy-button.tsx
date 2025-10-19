@@ -4,6 +4,12 @@ import * as React from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Copy, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 interface CopyButtonProps {
@@ -50,7 +56,7 @@ export function CopyButton({
     }
   }
 
-  return (
+  const button = (
     <Button
       className={cn(
         "relative size-9 p-1.5 text-muted-foreground hover:text-foreground transition-colors",
@@ -61,7 +67,6 @@ export function CopyButton({
       variant={variant}
       onClick={handleCopy}
       disabled={isLoading}
-      title={tooltip || "Copy to clipboard"}
     >
       <AnimatePresence mode="wait" initial={false}>
         {copied ? (
@@ -89,4 +94,19 @@ export function CopyButton({
       <span className="sr-only">{tooltip || "Copy to clipboard"}</span>
     </Button>
   )
+
+  if (tooltip) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>{button}</TooltipTrigger>
+          <TooltipContent>
+            <p>{tooltip}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }
+
+  return button
 }
