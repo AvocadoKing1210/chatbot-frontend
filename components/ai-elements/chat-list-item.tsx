@@ -3,19 +3,21 @@
 import * as React from "react"
 import { motion } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { Database, Code, BarChart3 } from "lucide-react"
+import { Database, Code, BarChart3, Star } from "lucide-react"
 import { ChatItem } from "@/data/chats"
 import { cn } from "@/lib/utils"
 
 interface ChatListItemProps {
   chat: ChatItem
   onClick: (chatId: string) => void
+  onTogglePin?: (chatId: string) => void
   isActive?: boolean
   className?: string
 }
 
-export function ChatListItem({ chat, onClick, isActive, className }: ChatListItemProps) {
+export function ChatListItem({ chat, onClick, onTogglePin, isActive, className }: ChatListItemProps) {
   // Refs and state for single-line tag fitting
   const tagsContainerRef = React.useRef<HTMLDivElement | null>(null)
   const moreBadgeMeasureRef = React.useRef<HTMLDivElement | null>(null)
@@ -234,7 +236,7 @@ export function ChatListItem({ chat, onClick, isActive, className }: ChatListIte
       whileTap={{ scale: 0.98 }}
       onClick={() => onClick(chat.id)}
       className={cn(
-        "rounded-lg p-3 text-sm hover:bg-accent cursor-pointer transition-all duration-200 group",
+        "rounded-lg p-3 text-sm hover:bg-accent cursor-pointer transition-all duration-200 group relative",
         isActive && "bg-accent",
         className
       )}
@@ -275,6 +277,31 @@ export function ChatListItem({ chat, onClick, isActive, className }: ChatListIte
           </div>
         </div>
       </div>
+
+      {/* Unpin button positioned in bottom right corner */}
+      {chat.pinned && onTogglePin && (
+        <div className="absolute bottom-2 right-2">
+          <Tooltip delayDuration={200}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-destructive/10 hover:text-destructive rounded-full bg-background border border-border shadow-sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onTogglePin(chat.id)
+                }}
+              >
+                <Star className="h-3 w-3 fill-current" />
+                <span className="sr-only">Unpin chat</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>Unpin chat</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
     </motion.div>
   )
 }

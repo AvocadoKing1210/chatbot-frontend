@@ -55,7 +55,7 @@ export function Sidebar({
   const [isMobile, setIsMobile] = React.useState(false)
   const [isInitialized, setIsInitialized] = React.useState(false)
   const [keyboardShortcut, setKeyboardShortcut] = React.useState("Ctrl + K")
-  const { chats, createChat, setCurrentChat } = useChat()
+  const { chats, createChat, setCurrentChat, togglePin } = useChat()
   const router = useRouter()
 
   React.useEffect(() => {
@@ -351,6 +351,7 @@ export function Sidebar({
                   key={chat.id}
                   chat={chat}
                   onClick={handleChatClick}
+                  onTogglePin={togglePin}
                 />
               ))
             )}
@@ -376,6 +377,7 @@ export function Sidebar({
                     key={chat.id}
                     chat={chat}
                     onClick={handleChatClick}
+                    onTogglePin={togglePin}
                   />
                 ))
             )}

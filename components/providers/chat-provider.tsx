@@ -27,6 +27,7 @@ interface ChatContextType {
   addMessage: (chatId: string, content: string, role: 'user' | 'assistant') => string
   updateChat: (chatId: string, updates: Partial<ChatItem>) => void
   deleteChat: (chatId: string) => void
+  togglePin: (chatId: string) => void
   
   // AI response simulation
   generateAIResponse: (userMessage: string) => string
@@ -867,6 +868,29 @@ pipeline.save_model('model.pkl')
     }
   }, [currentChat])
 
+  const togglePin = React.useCallback((chatId: string) => {
+    setChats(prev => {
+      const updatedChats = prev.map(chat => {
+        if (chat.id === chatId) {
+          const updatedChat = { 
+            ...chat, 
+            pinned: !chat.pinned,
+            updatedAt: new Date().toISOString()
+          }
+          
+          // Update currentChat if it's the one being pinned/unpinned
+          if (currentChat?.id === chatId) {
+            setCurrentChat(updatedChat)
+          }
+          
+          return updatedChat
+        }
+        return chat
+      })
+      return updatedChats
+    })
+  }, [currentChat])
+
   const value: ChatContextType = {
     currentChat,
     setCurrentChat,
@@ -876,6 +900,7 @@ pipeline.save_model('model.pkl')
     addMessage,
     updateChat,
     deleteChat,
+    togglePin,
     generateAIResponse
   }
 
