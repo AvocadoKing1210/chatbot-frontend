@@ -4,20 +4,33 @@ import * as React from "react"
 import { motion } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+} from "@/components/ui/context-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { Database, Code, BarChart3, Star } from "lucide-react"
+import { Database, Code, BarChart3, Star, Trash2, Folder as FolderIcon } from "lucide-react"
 import { ChatItem } from "@/data/chats"
 import { cn } from "@/lib/utils"
+import { folders } from "@/data"
 
 interface ChatListItemProps {
   chat: ChatItem
   onClick: (chatId: string) => void
   onTogglePin?: (chatId: string) => void
+  onDelete?: (chatId: string) => void
+  onMoveToFolder?: (chatId: string, folderId?: string) => void
   isActive?: boolean
   className?: string
 }
 
-export function ChatListItem({ chat, onClick, onTogglePin, isActive, className }: ChatListItemProps) {
+export function ChatListItem({ chat, onClick, onTogglePin, onDelete, onMoveToFolder, isActive, className }: ChatListItemProps) {
   // Refs and state for single-line tag fitting
   const tagsContainerRef = React.useRef<HTMLDivElement | null>(null)
   const moreBadgeMeasureRef = React.useRef<HTMLDivElement | null>(null)
@@ -231,16 +244,18 @@ export function ChatListItem({ chat, onClick, onTogglePin, isActive, className }
   }
 
   return (
-    <motion.div
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={() => onClick(chat.id)}
-      className={cn(
-        "rounded-lg p-3 text-sm hover:bg-accent cursor-pointer transition-all duration-200 group relative",
-        isActive && "bg-accent",
-        className
-      )}
-    >
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <motion.div
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => onClick(chat.id)}
+          className={cn(
+            "rounded-lg p-3 text-sm hover:bg-accent cursor-pointer transition-all duration-200 group relative",
+            isActive && "bg-accent",
+            className
+          )}
+        >
       {/* Title and Date Row */}
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="font-medium truncate group-hover:text-foreground transition-colors flex-1 min-w-0">
@@ -278,30 +293,104 @@ export function ChatListItem({ chat, onClick, onTogglePin, isActive, className }
         </div>
       </div>
 
-      {/* Unpin button positioned in bottom right corner */}
-      {chat.pinned && onTogglePin && (
-        <div className="absolute bottom-2 right-2">
-          <Tooltip delayDuration={200}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-destructive/10 hover:text-destructive rounded-full bg-background border border-border shadow-sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onTogglePin(chat.id)
-                }}
-              >
-                <Star className="h-3 w-3 fill-current" />
-                <span className="sr-only">Unpin chat</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <p>Unpin chat</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      )}
-    </motion.div>
+          {/* Unpin button positioned in bottom right corner */}
+          {chat.pinned && onTogglePin && (
+            <div className="absolute bottom-2 right-2">
+              <Tooltip delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-destructive/10 hover:text-destructive rounded-full bg-background border border-border shadow-sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onTogglePin(chat.id)
+                    }}
+                  >
+                    <Star className="h-3 w-3 fill-current" />
+                    <span className="sr-only">Unpin chat</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Unpin chat</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          )}
+        </motion.div>
+      </ContextMenuTrigger>
+
+      <ContextMenuContent className="w-56">
+        {onTogglePin && (
+          <ContextMenuItem
+            onSelect={(e: Event) => {
+              e.preventDefault()
+              onTogglePin(chat.id)
+            }}
+          >
+            {chat.pinned ? (
+              <>
+                <Star className="mr-2 h-4 w-4 fill-current" /> Unpin
+              </>
+            ) : (
+              <>
+                <Star className="mr-2 h-4 w-4" /> Pin
+              </>
+            )}
+          </ContextMenuItem>
+        )}
+
+        <ContextMenuSub>
+          <ContextMenuSubTrigger>
+            <FolderIcon className="mr-2 h-4 w-4" /> Move to folder
+          </ContextMenuSubTrigger>
+          <ContextMenuSubContent className="w-56">
+            {onMoveToFolder && (
+              <>
+                {folders.map((f) => (
+                  <ContextMenuItem
+                    key={f.id}
+                    onSelect={(e: Event) => {
+                      e.preventDefault()
+                      onMoveToFolder(chat.id, f.id)
+                    }}
+                  >
+                    {f.name}
+                  </ContextMenuItem>
+                ))}
+                {chat.folderId && (
+                  <>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      onSelect={(e: Event) => {
+                        e.preventDefault()
+                        onMoveToFolder(chat.id, undefined)
+                      }}
+                    >
+                      Remove from folder
+                    </ContextMenuItem>
+                  </>
+                )}
+              </>
+            )}
+          </ContextMenuSubContent>
+        </ContextMenuSub>
+
+        {onDelete && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              className="text-destructive focus:text-destructive"
+              onSelect={(e: Event) => {
+                e.preventDefault()
+                onDelete(chat.id)
+              }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Delete
+            </ContextMenuItem>
+          </>
+        )}
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }

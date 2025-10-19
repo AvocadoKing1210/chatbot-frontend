@@ -11,6 +11,7 @@ export interface ChatItem {
   preview: string
   updatedAt: string
   pinned?: boolean
+  folderId?: string
   tags?: string[]
   messages: Message[]
   mode: 'sql' | 'python'

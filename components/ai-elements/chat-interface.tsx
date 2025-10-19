@@ -50,6 +50,7 @@ import { Database, CodeXml } from "lucide-react"
 import type { SelectorOption } from "@/components/ai-elements/chat-input"
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { DeleteChatDialog } from "@/components/ui/confirmation-dialog"
 
 interface ChatInterfaceProps {
   chat: ChatItem
@@ -593,30 +594,12 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
       </Dialog>
 
       {/* Delete Chat Dialog */}
-      <Dialog open={isDeletingChat} onOpenChange={setIsDeletingChat}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Chat</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="text-sm text-muted-foreground">
-              Are you sure you want to delete "{chat.title}"? This action cannot be undone and will permanently remove all messages in this chat.
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsDeletingChat(false)}>
-                Cancel
-              </Button>
-              <Button 
-                variant="destructive" 
-                onClick={handleDeleteChat}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Chat
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <DeleteChatDialog
+        open={isDeletingChat}
+        onOpenChange={setIsDeletingChat}
+        chatTitle={chat.title}
+        onConfirm={handleDeleteChat}
+      />
     </div>
   )
 }

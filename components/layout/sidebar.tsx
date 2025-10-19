@@ -27,6 +27,7 @@ import { useChat } from "@/components/providers/chat-provider"
 import { ChatListItem } from "@/components/ai-elements/chat-list-item"
 import { Bot } from "lucide-react"
 import SearchModal from "@/components/layout/search-modal"
+import { DeleteChatDialog } from "@/components/ui/confirmation-dialog"
 
 
 interface SidebarProps {
@@ -55,7 +56,9 @@ export function Sidebar({
   const [isMobile, setIsMobile] = React.useState(false)
   const [isInitialized, setIsInitialized] = React.useState(false)
   const [keyboardShortcut, setKeyboardShortcut] = React.useState("Ctrl + K")
-  const { chats, createChat, setCurrentChat, togglePin } = useChat()
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false)
+  const [chatToDelete, setChatToDelete] = React.useState<string | null>(null)
+  const { chats, createChat, setCurrentChat, togglePin, deleteChat, updateChat } = useChat()
   const router = useRouter()
 
   React.useEffect(() => {
@@ -128,6 +131,22 @@ export function Sidebar({
       setCurrentChat(chat)
       router.push(`/chat/${chatId}`)
     }
+  }
+
+  const handleDeleteChat = (chatId: string) => {
+    setChatToDelete(chatId)
+    setDeleteConfirmOpen(true)
+  }
+
+  const confirmDeleteChat = () => {
+    if (chatToDelete) {
+      deleteChat(chatToDelete)
+      setChatToDelete(null)
+    }
+  }
+
+  const handleMoveChatToFolder = (chatId: string, folderId?: string) => {
+    updateChat(chatId, { folderId })
   }
 
   const handleLogout = () => {
@@ -352,6 +371,8 @@ export function Sidebar({
                   chat={chat}
                   onClick={handleChatClick}
                   onTogglePin={togglePin}
+                  onDelete={handleDeleteChat}
+                  onMoveToFolder={handleMoveChatToFolder}
                 />
               ))
             )}
@@ -378,6 +399,8 @@ export function Sidebar({
                     chat={chat}
                     onClick={handleChatClick}
                     onTogglePin={togglePin}
+                    onDelete={handleDeleteChat}
+                    onMoveToFolder={handleMoveChatToFolder}
                   />
                 ))
             )}
@@ -478,6 +501,13 @@ export function Sidebar({
         conversations={chats}
         onSelectConversation={handleChatClick}
         onCreateNewChat={handleNewChat}
+      />
+      
+      <DeleteChatDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        chatTitle={chatToDelete ? chats.find(c => c.id === chatToDelete)?.title || "this chat" : ""}
+        onConfirm={confirmDeleteChat}
       />
     </>
   )
