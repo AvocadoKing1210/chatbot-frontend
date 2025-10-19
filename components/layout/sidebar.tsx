@@ -26,6 +26,7 @@ import { folders, templates } from "@/data"
 import { useChat } from "@/components/providers/chat-provider"
 import { ChatListItem } from "@/components/ai-elements/chat-list-item"
 import { Bot } from "lucide-react"
+import SearchModal from "@/components/layout/search-modal"
 
 
 interface SidebarProps {
@@ -44,6 +45,7 @@ export function Sidebar({
   className,
 }: SidebarProps) {
   const [searchQuery, setSearchQuery] = React.useState("")
+  const [isSearchOpen, setIsSearchOpen] = React.useState(false)
   const [collapsedSections, setCollapsedSections] = React.useState({
     pinned: false,
     recent: false,
@@ -85,6 +87,28 @@ export function Sidebar({
     }
   }, [isMobile, isOpen])
 
+  // Global keyboard shortcut for search (Cmd/Ctrl + K)
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.contentEditable === 'true'
+      ) {
+        return
+      }
+      const isMac = navigator.platform.toLowerCase().includes('mac')
+      const modifierKey = isMac ? event.metaKey : event.ctrlKey
+      if (modifierKey && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setIsSearchOpen(true)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
 
   const toggleSection = (section: keyof typeof collapsedSections) => {
     setCollapsedSections(prev => ({
@@ -119,6 +143,7 @@ export function Sidebar({
   // Collapsed sidebar view (desktop only)
   if (isCollapsed && !isMobile) {
     return (
+      <>
       <motion.aside
         initial={{ width: 320 }}
         animate={{ width: 64 }}
@@ -168,6 +193,7 @@ export function Sidebar({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
+                onClick={() => setIsSearchOpen(true)}
               >
                 <Search className="h-4 w-4" />
                 <span className="sr-only">Search</span>
@@ -204,6 +230,14 @@ export function Sidebar({
           <ThemeToggle />
         </div>
       </motion.aside>
+      <SearchModal
+        open={isSearchOpen}
+        onOpenChange={setIsSearchOpen}
+        conversations={chats}
+        onSelectConversation={handleChatClick}
+        onCreateNewChat={handleNewChat}
+      />
+      </>
     )
   }
 
@@ -296,6 +330,7 @@ export function Sidebar({
               placeholder={`Search... (${keyboardShortcut})`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setIsSearchOpen(true)}
               className="pl-9"
             />
           </div>
@@ -433,6 +468,13 @@ export function Sidebar({
           </div>
         </div>
       </motion.aside>
+      <SearchModal
+        open={isSearchOpen}
+        onOpenChange={setIsSearchOpen}
+        conversations={chats}
+        onSelectConversation={handleChatClick}
+        onCreateNewChat={handleNewChat}
+      />
     </>
   )
 }
