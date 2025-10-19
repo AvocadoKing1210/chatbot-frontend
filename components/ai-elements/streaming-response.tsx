@@ -62,7 +62,7 @@ export function StreamingResponse({
   // If not streaming, show content immediately
   if (!isStreaming) {
     return (
-      <div className={cn("relative whitespace-pre-wrap text-sm", className)}>
+      <div className={cn("relative text-sm", className)}>
         <Response>
           {content}
         </Response>
@@ -71,7 +71,7 @@ export function StreamingResponse({
   }
 
   return (
-    <div className={cn("relative whitespace-pre-wrap text-sm", className)}>
+    <div className={cn("relative text-sm", className)}>
       <Response>
         {displayedContent + (!isComplete ? "▋" : "")}
       </Response>

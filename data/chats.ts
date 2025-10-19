@@ -100,6 +100,41 @@ export const recentChats: ChatItem[] = [
       }
     ]
   },
+  {
+    id: "4",
+    title: "Data Analysis with Tables",
+    preview: "Analyzing sales data and creating visualizations...",
+    updatedAt: "2024-01-12T14:15:00Z",
+    tags: ["data-analysis", "tables", "charts"],
+    mode: "sql",
+    chartEnabled: true,
+    messages: [
+      {
+        id: "4-1",
+        content: "Can you help me analyze this sales data and create a summary table?",
+        role: "user",
+        timestamp: "2024-01-12T14:15:00Z"
+      },
+      {
+        id: "4-2",
+        content: "I'd be happy to help you analyze the sales data! Here's a comprehensive summary table of your Q4 2023 sales performance:\n\n| Product Category | Units Sold | Revenue | Growth % | Top Region |\n|------------------|------------|---------|----------|------------|\n| Electronics | 2,450 | $487,500 | +15.2% | North America |\n| Clothing | 3,200 | $128,000 | +8.7% | Europe |\n| Home & Garden | 1,800 | $162,000 | +22.1% | Asia Pacific |\n| Sports & Outdoors | 1,100 | $99,000 | -3.2% | North America |\n| Books & Media | 2,800 | $84,000 | +12.5% | Europe |\n| Health & Beauty | 1,950 | $156,000 | +18.9% | North America |\n\n**Key Insights:**\n- **Total Revenue**: $1,116,500\n- **Best Performer**: Home & Garden (+22.1% growth)\n- **Needs Attention**: Sports & Outdoors (-3.2% decline)\n- **Top Market**: North America (40% of total sales)\n\nWould you like me to create a chart visualization or dive deeper into any specific category?",
+        role: "assistant",
+        timestamp: "2024-01-12T14:15:30Z"
+      },
+      {
+        id: "4-3",
+        content: "Can you show me the monthly breakdown for Electronics?",
+        role: "user",
+        timestamp: "2024-01-12T14:16:00Z"
+      },
+      {
+        id: "4-4",
+        content: "Here's the monthly breakdown for Electronics sales in Q4 2023:\n\n| Month | Units Sold | Revenue | Avg Price | Market Share |\n|-------|------------|---------|-----------|--------------|\n| October | 780 | $152,100 | $195.00 | 32% |\n| November | 920 | $189,750 | $206.25 | 38% |\n| December | 750 | $145,650 | $194.20 | 30% |\n\n**Monthly Analysis:**\n- **Peak Month**: November (Black Friday/Cyber Monday impact)\n- **Average Price Trend**: Slight increase in November, then stabilization\n- **Consistent Performance**: All months above 30% market share\n\n**Recommendations:**\n1. **Inventory Planning**: Stock up for November surge\n2. **Pricing Strategy**: November premium pricing worked well\n3. **Marketing Focus**: Leverage October momentum for December\n\nWould you like me to create a line chart showing the monthly trend or analyze any other metrics?",
+        role: "assistant",
+        timestamp: "2024-01-12T14:16:45Z"
+      }
+    ]
+  },
 ]
 
 // Utility functions for chat management

@@ -290,7 +290,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
             "rounded-lg px-4 py-2",
             isUser 
               ? "bg-primary text-primary-foreground" 
-              : "bg-muted"
+              : ""
           )}>
             {isUser ? (
               <div className="whitespace-pre-wrap text-sm">
@@ -472,7 +472,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
                 <Bot className="h-4 w-4" />
               </div>
             </div>
-            <div className="bg-muted rounded-lg px-4 py-2">
+            <div className="rounded-lg px-4 py-2">
               <Shimmer className="text-sm">
                 AI is thinking...
               </Shimmer>

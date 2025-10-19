@@ -47,7 +47,7 @@ export const MessageActions = React.memo(({
   }
 
   return (
-    <div className="mt-2 flex items-center justify-between">
+    <div className="mt-2 flex items-center justify-start gap-4">
       <Actions>
         <Action
           tooltip="Regenerate response"
@@ -93,7 +93,7 @@ export const MessageActions = React.memo(({
           <Share className="h-4 w-4" />
         </Action>
       </Actions>
-      <div className="text-xs text-muted-foreground opacity-70">
+      <div className="text-xs text-muted-foreground opacity-70 ml-auto mr-4">
         {formatTimestamp(timestamp)}
       </div>
     </div>
