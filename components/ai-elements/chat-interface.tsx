@@ -6,16 +6,18 @@ import { motion, AnimatePresence } from "framer-motion"
 import { 
   Bot, 
   User, 
-  Edit3, 
+  SquarePen, 
   MoreVertical, 
-  Pin, 
+  Star, 
   Trash2,
   Tag,
   ArrowLeft,
   RotateCcw,
   ThumbsUp,
   ThumbsDown,
-  Share
+  Share,
+  X,
+  Plus
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -64,7 +66,8 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
   const [isEditingTitle, setIsEditingTitle] = React.useState(false)
   const [editTitle, setEditTitle] = React.useState(chat.title)
   const [isEditingTags, setIsEditingTags] = React.useState(false)
-  const [editTags, setEditTags] = React.useState(chat.tags?.join(", ") || "")
+  const [editTags, setEditTags] = React.useState<string[]>(chat.tags || [])
+  const [newTag, setNewTag] = React.useState("")
   const [isDeletingChat, setIsDeletingChat] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(false)
   const [chartEnabled, setChartEnabled] = React.useState(chat.chartEnabled)
@@ -200,9 +203,27 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
   }
 
   const handleUpdateTags = () => {
-    const tags = editTags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
-    updateChat(chat.id, { tags })
+    updateChat(chat.id, { tags: editTags })
     setIsEditingTags(false)
+  }
+
+  const handleAddTag = () => {
+    const trimmedTag = newTag.trim()
+    if (trimmedTag && !editTags.includes(trimmedTag)) {
+      setEditTags([...editTags, trimmedTag])
+      setNewTag("")
+    }
+  }
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setEditTags(editTags.filter(tag => tag !== tagToRemove))
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleAddTag()
+    }
   }
 
   const handleDeleteChat = () => {
@@ -448,7 +469,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setIsEditingTitle(true)}>
-                <Edit3 className="mr-2 h-4 w-4" />
+                <SquarePen className="mr-2 h-4 w-4" />
                 Edit Title
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setIsEditingTags(true)}>
@@ -456,7 +477,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
                 Edit Tags
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => updateChat(chat.id, { pinned: !chat.pinned })}>
-                <Pin className="mr-2 h-4 w-4" />
+                <Star className="mr-2 h-4 w-4" />
                 {chat.pinned ? 'Unpin' : 'Pin'} Chat
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -567,25 +588,74 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
 
       {/* Edit Tags Dialog */}
       <Dialog open={isEditingTags} onOpenChange={setIsEditingTags}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit Tags</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Tag className="h-5 w-5" />
+              Edit Tags
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* Existing Tags */}
+            {editTags.length > 0 && (
+              <div>
+                <label className="text-sm font-medium mb-2 block">Current Tags</label>
+                <div className="flex flex-wrap gap-2">
+                  <AnimatePresence mode="popLayout">
+                    {editTags.map((tag) => (
+                      <motion.div
+                        key={tag}
+                        layout
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        transition={{ duration: 0.2, ease: "easeInOut" }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-secondary/50 border border-border rounded-full text-sm font-medium text-foreground shadow-sm"
+                      >
+                        <span className="text-xs">{tag}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 rounded-full hover:bg-transparent"
+                          onClick={() => handleRemoveTag(tag)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </div>
+            )}
+
+            {/* Add New Tag */}
             <div>
-              <label className="text-sm font-medium">Tags (comma-separated)</label>
-              <Input
-                value={editTags}
-                onChange={(e) => setEditTags(e.target.value)}
-                placeholder="design, ui, components"
-                className="mt-1"
-              />
+              <label className="text-sm font-medium mb-3 block">Add New Tag</label>
+              <div className="flex gap-2">
+                <Input
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Enter tag name"
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleAddTag}
+                  disabled={!newTag.trim() || editTags.includes(newTag.trim())}
+                  size="sm"
+                  className="px-3"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add
+                </Button>
+              </div>
             </div>
-            <div className="flex justify-end gap-2">
+
+            <div className="flex justify-end gap-3 pt-2">
               <Button variant="outline" onClick={() => setIsEditingTags(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleUpdateTags}>
+              <Button onClick={handleUpdateTags} className="min-w-[100px]">
                 Save Tags
               </Button>
             </div>
