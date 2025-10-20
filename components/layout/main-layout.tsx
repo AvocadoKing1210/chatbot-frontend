@@ -63,9 +63,9 @@ function MainLayoutContent({ className }: MainLayoutProps) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  const handleSendMessage = (message: string) => {
+  const handleSendMessage = async (message: string) => {
     // Create a new chat and navigate to it
-    const newChat = createChat({
+    const newChat = await createChat({
       title: message.length > 30 ? message.substring(0, 30) + "..." : message,
       mode: selectedMode,
       chartEnabled,

@@ -143,10 +143,6 @@ export function ChatInput({
           />
         </PromptInputFooter>
       </PromptInput>
-      
-      <div className="mt-2 text-xs text-muted-foreground text-center">
-        Press Enter to send · Shift + Enter for newline
-      </div>
     </div>
   )
 }

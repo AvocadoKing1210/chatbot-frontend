@@ -1,3 +1,7 @@
+import { db } from '@/lib/database'
+import type { ChatItem, MessageItem, CreateChatData } from '@/lib/database'
+
+// Re-export types for backward compatibility
 export interface Message {
   id: string
   content: string
@@ -5,229 +9,220 @@ export interface Message {
   timestamp: string
 }
 
-export interface ChatItem {
-  id: string
-  title: string
-  preview: string
-  updatedAt: string
-  pinned?: boolean
+export type { ChatItem, CreateChatData }
+
+// Utility function to set preview to title (simplified approach)
+const getPreviewFromTitle = (title: string): string => {
+  return title
+}
+
+// Real data functions using Supabase
+export async function getChats(userId: string, options?: {
   folderId?: string
-  tags?: string[]
-  messages: Message[]
-  mode: 'sql' | 'python'
-  chartEnabled: boolean
+  pinned?: boolean
+  limit?: number
+  offset?: number
+}): Promise<ChatItem[]> {
+  try {
+    const chats = await db.getChats(userId, options)
+    return chats.map(chat => ({
+      id: chat.id,
+      title: chat.title,
+      preview: chat.preview || '',
+      updatedAt: chat.updated_at || chat.created_at || new Date().toISOString(),
+      pinned: chat.pinned || false,
+      folderId: chat.folder_id || undefined,
+      tags: chat.chat_tags?.map(ct => ct.tags.name) || [],
+      messages: chat.messages?.map(message => ({
+        id: message.id,
+        content: message.content,
+        role: message.role as 'user' | 'assistant',
+        timestamp: message.created_at || new Date().toISOString()
+      })) || [],
+      mode: (chat.mode as 'sql' | 'python') || 'sql',
+      chartEnabled: chat.chart_enabled || false,
+    }))
+  } catch (error) {
+    console.error('Error fetching chats:', error)
+    return []
+  }
 }
 
-export interface CreateChatData {
-  title?: string
-  tags?: string[]
-  mode: 'sql' | 'python'
-  chartEnabled: boolean
-  initialMessage?: string
+export async function getPinnedChats(userId: string): Promise<ChatItem[]> {
+  return getChats(userId, { pinned: true })
 }
 
-// Mock data for demo
-export const pinnedChats: ChatItem[] = [
-  {
-    id: "1",
-    title: "Modern AI Chatbot Interface",
-    preview: "Design discussion about UI components...",
-    updatedAt: "2024-01-15T10:30:00Z",
-    pinned: true,
-    folderId: "1",
-    tags: ["design", "ui"],
-    mode: "sql",
-    chartEnabled: true,
-    messages: [
-      {
-        id: "1-1",
-        content: "Can you help me design a modern chatbot interface?",
-        role: "user",
-        timestamp: "2024-01-15T10:30:00Z"
-      },
-      {
-        id: "1-2",
-        content: "I'd be happy to help you design a modern chatbot interface! Here are some key principles to consider:\n\n1. **Clean and Minimal Design**: Keep the interface uncluttered with plenty of white space\n2. **Clear Message Bubbles**: Use distinct styling for user and bot messages\n3. **Responsive Layout**: Ensure it works well on both desktop and mobile\n4. **Accessibility**: Include proper contrast ratios and keyboard navigation\n5. **Loading States**: Show typing indicators and loading animations\n\nWould you like me to elaborate on any of these aspects or help you with specific design elements?",
-        role: "assistant",
-        timestamp: "2024-01-15T10:30:15Z"
-      }
-    ]
-  },
-  {
-    id: "6",
-    title: "Database Optimization Guide",
-    preview: "Performance tuning and query optimization techniques...",
-    updatedAt: "2024-01-16T14:20:00Z",
-    pinned: true,
-    folderId: "1",
-    tags: ["database", "performance", "sql"],
-    mode: "sql",
-    chartEnabled: true,
-    messages: [
-      {
-        id: "6-1",
-        content: "How can I optimize my database queries for better performance?",
-        role: "user",
-        timestamp: "2024-01-16T14:20:00Z"
-      },
-      {
-        id: "6-2",
-        content: "Database optimization is crucial for application performance. Here are the key strategies:\n\n## Indexing Strategy\n- Create indexes on frequently queried columns\n- Use composite indexes for multi-column queries\n- Monitor index usage with `EXPLAIN ANALYZE`\n\n## Query Optimization\n- Use `LIMIT` to reduce result sets\n- Avoid `SELECT *` in production\n- Use `JOIN` instead of subqueries when possible\n\n## Database Maintenance\n- Regular `VACUUM` and `ANALYZE` operations\n- Monitor slow query logs\n- Use connection pooling\n\nWould you like me to dive deeper into any specific optimization technique?",
-        role: "assistant",
-        timestamp: "2024-01-16T14:20:15Z"
-      }
-    ]
-  },
-  {
-    id: "7",
-    title: "React Performance Best Practices",
-    preview: "Memoization, lazy loading, and optimization techniques...",
-    updatedAt: "2024-01-17T09:15:00Z",
-    pinned: true,
-    folderId: "1",
-    tags: ["react", "performance", "optimization"],
-    mode: "python",
-    chartEnabled: false,
-    messages: [
-      {
-        id: "7-1",
-        content: "What are the best practices for optimizing React applications?",
-        role: "user",
-        timestamp: "2024-01-17T09:15:00Z"
-      },
-      {
-        id: "7-2",
-        content: "React performance optimization involves several key strategies:\n\n## Component Optimization\n- Use `React.memo()` for expensive components\n- Implement `useMemo()` for expensive calculations\n- Apply `useCallback()` for stable function references\n\n## Bundle Optimization\n- Code splitting with `React.lazy()`\n- Dynamic imports for route-based splitting\n- Tree shaking to eliminate dead code\n\n## Rendering Optimization\n- Avoid inline object/function creation in render\n- Use `key` prop correctly in lists\n- Minimize re-renders with proper state management\n\n## Development Tools\n- React DevTools Profiler\n- Bundle analyzers like `webpack-bundle-analyzer`\n- Performance monitoring with `React.StrictMode`\n\nWould you like me to show you specific examples of these optimizations?",
-        role: "assistant",
-        timestamp: "2024-01-17T09:15:20Z"
-      }
-    ]
-  },
-]
+export async function getRecentChats(userId: string, limit: number = 10): Promise<ChatItem[]> {
+  return getChats(userId, { limit })
+}
 
-export const recentChats: ChatItem[] = [
-  {
-    id: "2",
-    title: "Chatbot app with UI",
-    preview: "Implementation details for the chat interface...",
-    updatedAt: "2024-01-14T15:45:00Z",
-    folderId: "2",
-    tags: ["development", "react"],
-    mode: "python",
-    chartEnabled: false,
-    messages: [
-      {
-        id: "2-1",
-        content: "How do I implement a chat interface in React?",
-        role: "user",
-        timestamp: "2024-01-14T15:45:00Z"
-      },
-      {
-        id: "2-2",
-        content: "To implement a chat interface in React, you'll need several key components:\n\n1. **Message List Component**: Display messages in a scrollable container\n2. **Input Component**: Handle user input with send functionality\n3. **State Management**: Track messages, typing status, and user data\n4. **WebSocket Integration**: For real-time messaging (optional)\n\nHere's a basic structure:\n\n```jsx\nconst ChatInterface = () => {\n  const [messages, setMessages] = useState([]);\n  const [inputValue, setInputValue] = useState('');\n  \n  const sendMessage = () => {\n    // Add message to state\n    // Send to backend\n  };\n  \n  return (\n    <div className=\"chat-container\">\n      <MessageList messages={messages} />\n      <MessageInput \n        value={inputValue}\n        onChange={setInputValue}\n        onSend={sendMessage}\n      />\n    </div>\n  );\n};\n```\n\nWould you like me to show you how to implement any specific part?",
-        role: "assistant",
-        timestamp: "2024-01-14T15:45:20Z"
-      }
-    ]
-  },
-  {
-    id: "3",
-    title: "Design Geist component",
-    preview: "Working on the design system components...",
-    updatedAt: "2024-01-13T09:20:00Z",
-    folderId: "2",
-    tags: ["design-system", "components"],
-    mode: "sql",
-    chartEnabled: true,
-    messages: [
-      {
-        id: "3-1",
-        content: "What's the best way to create reusable UI components?",
-        role: "user",
-        timestamp: "2024-01-13T09:20:00Z"
-      },
-      {
-        id: "3-2",
-        content: "Creating reusable UI components is essential for maintaining consistency and efficiency. Here are the best practices:\n\n**1. Component Design Principles:**\n- Single Responsibility: Each component should have one clear purpose\n- Props Interface: Define clear, typed props with sensible defaults\n- Composition over Inheritance: Build complex components from simpler ones\n\n**2. Styling Approach:**\n- Use CSS-in-JS or utility classes (like Tailwind)\n- Support theming and customization\n- Ensure accessibility compliance\n\n**3. Documentation:**\n- Storybook for component documentation\n- Clear prop descriptions and examples\n- Usage guidelines and best practices\n\n**4. Testing:**\n- Unit tests for component logic\n- Visual regression tests\n- Accessibility testing\n\nWould you like me to show you how to implement a specific component pattern?",
-        role: "assistant",
-        timestamp: "2024-01-13T09:20:25Z"
-      }
-    ]
-  },
-  {
-    id: "4",
-    title: "Data Analysis with Tables",
-    preview: "Analyzing sales data and creating visualizations...",
-    updatedAt: "2024-01-12T14:15:00Z",
-    folderId: "3",
-    tags: [
-      "data-analysis",
-      "tables",
-      "charts",
-      "longer-tag-here",
-      "insights",
-      "dashboard",
-      "performance",
-      "metrics"
-    ],
-    mode: "sql",
-    chartEnabled: true,
-    messages: [
-      {
-        id: "4-1",
-        content: "Can you help me analyze this sales data and create a summary table?",
-        role: "user",
-        timestamp: "2024-01-12T14:15:00Z"
-      },
-      {
-        id: "4-2",
-        content: "I'd be happy to help you analyze the sales data! Here's a comprehensive summary table of your Q4 2023 sales performance:\n\n| Product Category | Units Sold | Revenue | Growth % | Top Region |\n|------------------|------------|---------|----------|------------|\n| Electronics | 2,450 | $487,500 | +15.2% | North America |\n| Clothing | 3,200 | $128,000 | +8.7% | Europe |\n| Home & Garden | 1,800 | $162,000 | +22.1% | Asia Pacific |\n| Sports & Outdoors | 1,100 | $99,000 | -3.2% | North America |\n| Books & Media | 2,800 | $84,000 | +12.5% | Europe |\n| Health & Beauty | 1,950 | $156,000 | +18.9% | North America |\n\n**Key Insights:**\n- **Total Revenue**: $1,116,500\n- **Best Performer**: Home & Garden (+22.1% growth)\n- **Needs Attention**: Sports & Outdoors (-3.2% decline)\n- **Top Market**: North America (40% of total sales)\n\nWould you like me to create a chart visualization or dive deeper into any specific category?",
-        role: "assistant",
-        timestamp: "2024-01-12T14:15:30Z"
-      },
-      {
-        id: "4-3",
-        content: "Can you show me the monthly breakdown for Electronics?",
-        role: "user",
-        timestamp: "2024-01-12T14:16:00Z"
-      },
-      {
-        id: "4-4",
-        content: "Here's the monthly breakdown for Electronics sales in Q4 2023:\n\n| Month | Units Sold | Revenue | Avg Price | Market Share |\n|-------|------------|---------|-----------|--------------|\n| October | 780 | $152,100 | $195.00 | 32% |\n| November | 920 | $189,750 | $206.25 | 38% |\n| December | 750 | $145,650 | $194.20 | 30% |\n\n**Monthly Analysis:**\n- **Peak Month**: November (Black Friday/Cyber Monday impact)\n- **Average Price Trend**: Slight increase in November, then stabilization\n- **Consistent Performance**: All months above 30% market share\n\n**Recommendations:**\n1. **Inventory Planning**: Stock up for November surge\n2. **Pricing Strategy**: November premium pricing worked well\n3. **Marketing Focus**: Leverage October momentum for December\n\nWould you like me to create a line chart showing the monthly trend or analyze any other metrics?",
-        role: "assistant",
-        timestamp: "2024-01-12T14:16:45Z"
-      }
-    ]
-  },
-  {
-    id: "5",
-    title: "Query & Chart Test",
-    preview: "Test SQL execution and chart generation",
-    updatedAt: "2024-01-18T12:00:00Z",
-    folderId: "3",
-    tags: ["test", "sql", "charts", "benchmarks", "optimizations", "longlonglongtag"],
-    mode: "sql",
-    chartEnabled: true,
-    messages: [
-      {
-        id: "5-1",
-        content: "Show me the average sales in 2020 for bikes",
-        role: "user",
-        timestamp: "2024-01-18T12:00:00Z"
-      },
-      {
-        id: "5-2",
-        content: "Here's a SQL query you can run to test the execution and chart flow using mock data. Click Execute below the code block, then optionally Generate chart.\n\n```sql\n-- Demo query for mock execution\nSELECT id, name, created_at\nFROM users\nLIMIT 3;\n```\n\nThis will render a table with mock rows and, if chart is enabled, embed the Superset chart.",
-        role: "assistant",
-        timestamp: "2024-01-18T12:00:10Z"
-      }
-    ]
-  },
-]
+export async function getChat(chatId: string): Promise<ChatItem | null> {
+  try {
+    const chat = await db.getChat(chatId)
+    return {
+      id: chat.id,
+      title: chat.title,
+      preview: chat.preview || '',
+      updatedAt: chat.updated_at || chat.created_at || new Date().toISOString(),
+      pinned: chat.pinned || false,
+      folderId: chat.folder_id || undefined,
+      tags: chat.chat_tags?.map(ct => ct.tags.name) || [],
+      messages: chat.messages?.map(message => ({
+        id: message.id,
+        content: message.content,
+        role: message.role as 'user' | 'assistant',
+        timestamp: message.created_at || new Date().toISOString()
+      })) || [],
+      mode: (chat.mode as 'sql' | 'python') || 'sql',
+      chartEnabled: chat.chart_enabled || false,
+    }
+  } catch (error) {
+    console.error('Error fetching chat:', error)
+    return null
+  }
+}
 
-// Utility functions for chat management
-export const createNewChat = (data: CreateChatData): ChatItem => {
-  const id = Date.now().toString()
+export async function createChat(userId: string, data: CreateChatData): Promise<ChatItem> {
+  try {
+    const title = data.title || 'New Chat'
+    const chat = await db.createChat({
+      title,
+      preview: getPreviewFromTitle(title),
+      mode: data.mode,
+      chart_enabled: data.chartEnabled,
+      user_id: userId
+    })
+    
+    // Add initial message if provided
+    if (data.initialMessage) {
+      await db.addMessage({
+        chat_id: chat.id,
+        content: data.initialMessage,
+        role: 'user'
+      })
+    }
+    
+    // Add tags if provided
+    if (data.tags && data.tags.length > 0) {
+      for (const tagName of data.tags) {
+        // Get or create tag
+        const tags = await db.getTags(userId)
+        let tag = tags.find(t => t.name === tagName)
+        
+        if (!tag) {
+          tag = await db.createTag({
+            name: tagName,
+            user_id: userId
+          })
+        }
+        
+        await db.addTagToChat(chat.id, tag.id)
+      }
+    }
+    
+    return {
+      id: chat.id,
+      title: chat.title,
+      preview: chat.preview || '',
+      updatedAt: chat.updated_at || chat.created_at || new Date().toISOString(),
+      pinned: chat.pinned || false,
+      folderId: chat.folder_id || undefined,
+      tags: data.tags || [],
+      messages: data.initialMessage ? [{
+        id: crypto.randomUUID(),
+        content: data.initialMessage,
+        role: 'user',
+        timestamp: new Date().toISOString()
+      }] : [],
+      mode: (chat.mode as 'sql' | 'python') || 'sql',
+      chartEnabled: chat.chart_enabled || false,
+    }
+  } catch (error) {
+    console.error('Error creating chat:', error)
+    throw error
+  }
+}
+
+export async function updateChat(chatId: string, updates: Partial<ChatItem>): Promise<ChatItem> {
+  try {
+    const chat = await db.updateChat(chatId, {
+      title: updates.title,
+      preview: updates.title ? getPreviewFromTitle(updates.title) : undefined,
+      pinned: updates.pinned,
+      folder_id: updates.folderId || null,
+      mode: updates.mode,
+      chart_enabled: updates.chartEnabled
+    })
+    
+    return {
+      id: chat.id,
+      title: chat.title,
+      preview: chat.preview || '',
+      updatedAt: chat.updated_at || chat.created_at || new Date().toISOString(),
+      pinned: chat.pinned || false,
+      folderId: chat.folder_id || undefined,
+      tags: updates.tags || [],
+      messages: updates.messages || [],
+      mode: (chat.mode as 'sql' | 'python') || 'sql',
+      chartEnabled: chat.chart_enabled || false,
+    }
+  } catch (error) {
+    console.error('Error updating chat:', error)
+    throw error
+  }
+}
+
+export async function deleteChat(chatId: string): Promise<void> {
+  try {
+    await db.deleteChat(chatId)
+  } catch (error) {
+    console.error('Error deleting chat:', error)
+    throw error
+  }
+}
+
+export async function addMessageToChatDB(chatId: string, content: string, role: 'user' | 'assistant'): Promise<Message> {
+  try {
+    const message = await db.addMessage({
+      chat_id: chatId,
+      content,
+      role
+    })
+    
+    return {
+      id: message.id,
+      content: message.content,
+      role: message.role as 'user' | 'assistant',
+      timestamp: message.created_at || new Date().toISOString()
+    }
+  } catch (error) {
+    console.error('Error adding message to chat:', error)
+    throw error
+  }
+}
+
+export async function getMessages(chatId: string): Promise<Message[]> {
+  try {
+    const messages = await db.getMessages(chatId)
+    return messages.map(message => ({
+      id: message.id,
+      content: message.content,
+      role: message.role as 'user' | 'assistant',
+      timestamp: message.created_at || new Date().toISOString()
+    }))
+  } catch (error) {
+    console.error('Error fetching messages:', error)
+    return []
+  }
+}
+
+// Legacy mock data (kept for backward compatibility during transition)
+export const pinnedChats: ChatItem[] = []
+export const recentChats: ChatItem[] = []
+
+// Utility functions for chat management (client-side operations)
+export const createNewChatItem = (data: CreateChatData): ChatItem => {
+  const id = crypto.randomUUID()
   const now = new Date().toISOString()
   
   return {
@@ -240,7 +235,7 @@ export const createNewChat = (data: CreateChatData): ChatItem => {
     chartEnabled: data.chartEnabled,
     messages: data.initialMessage ? [
       {
-        id: `${id}-1`,
+        id: crypto.randomUUID(),
         content: data.initialMessage,
         role: "user",
         timestamp: now
@@ -249,9 +244,9 @@ export const createNewChat = (data: CreateChatData): ChatItem => {
   }
 }
 
-export const addMessageToChat = (chat: ChatItem, content: string, role: 'user' | 'assistant'): ChatItem => {
+export const addMessageToChatItem = (chat: ChatItem, content: string, role: 'user' | 'assistant'): ChatItem => {
   const newMessage: Message = {
-    id: `${chat.id}-${Date.now()}`,
+    id: crypto.randomUUID(),
     content,
     role,
     timestamp: new Date().toISOString()
@@ -280,3 +275,39 @@ export const updateChatTags = (chat: ChatItem, tags: string[]): ChatItem => {
     updatedAt: new Date().toISOString()
   }
 }
+
+// Database operations for updating chat tags
+export async function updateChatTagsInDB(chatId: string, userId: string, tags: string[]): Promise<void> {
+  try {
+    // Get current chat tags
+    const currentTags = await db.getChatTags(chatId)
+    
+    // Remove all current tags
+    for (const currentTag of currentTags) {
+      await db.removeTagFromChat(chatId, currentTag.tags.id)
+    }
+    
+    // Add new tags
+    for (const tagName of tags) {
+      // Get or create tag
+      const userTags = await db.getTags(userId)
+      let tag = userTags.find(t => t.name === tagName)
+      
+      if (!tag) {
+        tag = await db.createTag({
+          name: tagName,
+          user_id: userId
+        })
+      }
+      
+      await db.addTagToChat(chatId, tag.id)
+    }
+  } catch (error) {
+    console.error('Error updating chat tags:', error)
+    throw error
+  }
+}
+
+// Legacy function exports for backward compatibility
+export const createNewChat = createNewChatItem
+export const addMessageToChat = addMessageToChatItem
