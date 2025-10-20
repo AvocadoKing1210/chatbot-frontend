@@ -15,10 +15,11 @@ import {
   ContextMenuSubTrigger,
 } from "@/components/ui/context-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { Database, Code, BarChart3, Star, Trash2, Folder as FolderIcon } from "lucide-react"
+import { Database, Code, BarChart3, Star, Trash2, Folder as FolderIcon, ChevronDown } from "lucide-react"
 import { ChatItem } from "@/data/chats"
 import { cn } from "@/lib/utils"
 import { folders } from "@/data"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface ChatListItemProps {
   chat: ChatItem
@@ -36,6 +37,8 @@ export function ChatListItem({ chat, onClick, onTogglePin, onDelete, onMoveToFol
   const moreBadgeMeasureRef = React.useRef<HTMLDivElement | null>(null)
   const tagMeasureRefs = React.useRef<Record<number, HTMLDivElement | null>>({})
   const [visibleTagCount, setVisibleTagCount] = React.useState<number>(3)
+  const isMobile = useIsMobile()
+  const [showFolderList, setShowFolderList] = React.useState(false)
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp)
     const now = new Date()
@@ -340,41 +343,113 @@ export function ChatListItem({ chat, onClick, onTogglePin, onDelete, onMoveToFol
           </ContextMenuItem>
         )}
 
-        <ContextMenuSub>
-          <ContextMenuSubTrigger>
-            <FolderIcon className="mr-2 h-4 w-4" /> Move to folder
-          </ContextMenuSubTrigger>
-          <ContextMenuSubContent className="w-56">
-            {onMoveToFolder && (
-              <>
-                {folders.map((f) => (
+        {/* Desktop submenu */}
+        {onMoveToFolder && !isMobile && (
+          <ContextMenuSub>
+            <ContextMenuSubTrigger>
+              <FolderIcon className="mr-2 h-4 w-4" /> Move to folder
+            </ContextMenuSubTrigger>
+            <ContextMenuSubContent className="w-56">
+              {folders.map((f) => {
+                const isCurrentFolder = chat.folderId === f.id
+                return (
                   <ContextMenuItem
                     key={f.id}
+                    disabled={isCurrentFolder}
                     onSelect={(e: Event) => {
                       e.preventDefault()
-                      onMoveToFolder(chat.id, f.id)
+                      if (!isCurrentFolder) {
+                        onMoveToFolder && onMoveToFolder(chat.id, f.id)
+                      }
+                    }}
+                    className={isCurrentFolder ? "opacity-50 cursor-not-allowed" : ""}
+                  >
+                    <div className="flex items-center gap-2">
+                      {isCurrentFolder && (
+                        <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />
+                      )}
+                      <span>{f.name}</span>
+                      {isCurrentFolder && (
+                        <span className="text-xs text-muted-foreground ml-auto">(current)</span>
+                      )}
+                    </div>
+                  </ContextMenuItem>
+                )
+              })}
+              {chat.folderId && (
+                <>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    onSelect={(e: Event) => {
+                      e.preventDefault()
+                      onMoveToFolder && onMoveToFolder(chat.id, undefined)
                     }}
                   >
-                    {f.name}
+                    Remove from folder
                   </ContextMenuItem>
-                ))}
+                </>
+              )}
+            </ContextMenuSubContent>
+          </ContextMenuSub>
+        )}
+
+        {/* Mobile inline expandable list */}
+        {onMoveToFolder && isMobile && (
+          <>
+            <ContextMenuItem
+              onSelect={(e: Event) => {
+                e.preventDefault()
+                setShowFolderList((v) => !v)
+              }}
+            >
+              <FolderIcon className="mr-2 h-4 w-4" />
+              Move to folder
+              <ChevronDown className={cn("ml-auto h-4 w-4 transition-transform", showFolderList ? "rotate-180" : "")} />
+            </ContextMenuItem>
+            {showFolderList && (
+              <div className="py-1">
+                {folders.map((f) => {
+                  const isCurrentFolder = chat.folderId === f.id
+                  return (
+                    <ContextMenuItem
+                      key={f.id}
+                      disabled={isCurrentFolder}
+                      onSelect={() => {
+                        if (!isCurrentFolder) {
+                          onMoveToFolder && onMoveToFolder(chat.id, f.id)
+                        }
+                      }}
+                      className={cn("pl-8", isCurrentFolder ? "opacity-50 cursor-not-allowed" : "")}
+                    >
+                      <div className="flex items-center gap-2">
+                        {isCurrentFolder && (
+                          <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />
+                        )}
+                        <span>{f.name}</span>
+                        {isCurrentFolder && (
+                          <span className="text-xs text-muted-foreground ml-auto">(current)</span>
+                        )}
+                      </div>
+                    </ContextMenuItem>
+                  )
+                })}
                 {chat.folderId && (
                   <>
                     <ContextMenuSeparator />
                     <ContextMenuItem
-                      onSelect={(e: Event) => {
-                        e.preventDefault()
-                        onMoveToFolder(chat.id, undefined)
+                      onSelect={() => {
+                        onMoveToFolder && onMoveToFolder(chat.id, undefined)
                       }}
+                      className="pl-8"
                     >
                       Remove from folder
                     </ContextMenuItem>
                   </>
                 )}
-              </>
+              </div>
             )}
-          </ContextMenuSubContent>
-        </ContextMenuSub>
+          </>
+        )}
 
         {onDelete && (
           <>
@@ -383,7 +458,7 @@ export function ChatListItem({ chat, onClick, onTogglePin, onDelete, onMoveToFol
               className="text-destructive focus:text-destructive"
               onSelect={(e: Event) => {
                 e.preventDefault()
-                onDelete(chat.id)
+                onDelete && onDelete(chat.id)
               }}
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete

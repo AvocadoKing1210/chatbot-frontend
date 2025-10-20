@@ -12,6 +12,16 @@ import {
   pinnedChats,
   recentChats
 } from "@/data/chats"
+import { 
+  FolderItem, 
+  CreateFolderData, 
+  createNewFolder, 
+  updateFolder as updateFolderUtil, 
+  addChatToFolder, 
+  removeChatFromFolder, 
+  moveChatBetweenFolders,
+  folders as initialFolders
+} from "@/data/folders"
 
 interface ChatContextType {
   // Current chat state
@@ -22,12 +32,22 @@ interface ChatContextType {
   chats: ChatItem[]
   setChats: React.Dispatch<React.SetStateAction<ChatItem[]>>
   
+  // Folder state
+  folders: FolderItem[]
+  setFolders: React.Dispatch<React.SetStateAction<FolderItem[]>>
+  
   // Chat operations
   createChat: (data: CreateChatData) => ChatItem
   addMessage: (chatId: string, content: string, role: 'user' | 'assistant') => string
   updateChat: (chatId: string, updates: Partial<ChatItem>) => void
   deleteChat: (chatId: string) => void
   togglePin: (chatId: string) => void
+  
+  // Folder operations
+  createFolder: (data: CreateFolderData) => FolderItem
+  updateFolder: (folderId: string, updates: Partial<FolderItem>) => void
+  deleteFolder: (folderId: string) => void
+  moveChatToFolder: (chatId: string, folderId?: string) => void
   
   // AI response simulation
   generateAIResponse: (userMessage: string) => string
@@ -50,6 +70,7 @@ interface ChatProviderProps {
 export function ChatProvider({ children }: ChatProviderProps) {
   const [currentChat, setCurrentChat] = React.useState<ChatItem | null>(null)
   const [chats, setChats] = React.useState<ChatItem[]>([...pinnedChats, ...recentChats])
+  const [folders, setFolders] = React.useState<FolderItem[]>(initialFolders)
   
   // Filter out empty chats (chats with no messages) for display purposes
   const nonEmptyChats = React.useMemo(() => 
@@ -891,16 +912,83 @@ pipeline.save_model('model.pkl')
     })
   }, [currentChat])
 
+  // Folder operations
+  const createFolder = React.useCallback((data: CreateFolderData): FolderItem => {
+    const newFolder = createNewFolder(data)
+    setFolders(prev => [newFolder, ...prev])
+    return newFolder
+  }, [])
+
+  const updateFolder = React.useCallback((folderId: string, updates: Partial<FolderItem>) => {
+    setFolders(prev => {
+      const updatedFolders = prev.map(folder => {
+        if (folder.id === folderId) {
+          return updateFolderUtil(folder, updates)
+        }
+        return folder
+      })
+      return updatedFolders
+    })
+  }, [])
+
+  const deleteFolder = React.useCallback((folderId: string) => {
+    setFolders(prev => prev.filter(folder => folder.id !== folderId))
+    
+    // Remove folderId from all chats that were in this folder
+    setChats(prev => {
+      const updatedChats = prev.map(chat => {
+        if (chat.folderId === folderId) {
+          return { ...chat, folderId: undefined }
+        }
+        return chat
+      })
+      return updatedChats
+    })
+  }, [])
+
+  const moveChatToFolder = React.useCallback((chatId: string, folderId?: string) => {
+    // Update chat's folderId
+    setChats(prev => {
+      const updatedChats = prev.map(chat => {
+        if (chat.id === chatId) {
+          return { ...chat, folderId }
+        }
+        return chat
+      })
+      return updatedChats
+    })
+
+    // Update folder's chatIds
+    setFolders(prev => {
+      return prev.map(folder => {
+        if (folderId && folder.id === folderId) {
+          // Add chat to target folder
+          return addChatToFolder(folder, chatId)
+        } else if (folder.chatIds.includes(chatId)) {
+          // Remove chat from current folder
+          return removeChatFromFolder(folder, chatId)
+        }
+        return folder
+      })
+    })
+  }, [])
+
   const value: ChatContextType = {
     currentChat,
     setCurrentChat,
     chats: nonEmptyChats, // Only expose non-empty chats
     setChats,
+    folders,
+    setFolders,
     createChat,
     addMessage,
     updateChat,
     deleteChat,
     togglePin,
+    createFolder,
+    updateFolder,
+    deleteFolder,
+    moveChatToFolder,
     generateAIResponse
   }
 

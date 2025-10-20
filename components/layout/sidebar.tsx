@@ -22,12 +22,15 @@ import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Kbd } from "@/components/ui/kbd"
 import { cn, getKeyboardShortcut } from "@/lib/utils"
-import { folders, templates } from "@/data"
+import { templates } from "@/data"
 import { useChat } from "@/components/providers/chat-provider"
 import { ChatListItem } from "@/components/ai-elements/chat-list-item"
+import { FolderRow } from "@/components/layout/folder-row"
+import { CreateFolderModal } from "@/components/layout/create-folder-modal"
 import { Bot } from "lucide-react"
 import SearchModal from "@/components/layout/search-modal"
 import { DeleteChatDialog } from "@/components/ui/confirmation-dialog"
+import { DeleteFolderDialog } from "@/components/ui/delete-folder-dialog"
 
 
 interface SidebarProps {
@@ -58,7 +61,24 @@ export function Sidebar({
   const [keyboardShortcut, setKeyboardShortcut] = React.useState("Ctrl + K")
   const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false)
   const [chatToDelete, setChatToDelete] = React.useState<string | null>(null)
-  const { chats, createChat, setCurrentChat, togglePin, deleteChat, updateChat } = useChat()
+  const [deleteFolderOpen, setDeleteFolderOpen] = React.useState(false)
+  const [folderToDelete, setFolderToDelete] = React.useState<any>(null)
+  const [createFolderOpen, setCreateFolderOpen] = React.useState(false)
+  const [editingFolder, setEditingFolder] = React.useState<any>(null)
+  const [expandedFolders, setExpandedFolders] = React.useState<Set<string>>(new Set())
+  const { 
+    chats, 
+    folders, 
+    createChat, 
+    setCurrentChat, 
+    togglePin, 
+    deleteChat, 
+    updateChat,
+    createFolder,
+    updateFolder,
+    deleteFolder,
+    moveChatToFolder
+  } = useChat()
   const router = useRouter()
 
   React.useEffect(() => {
@@ -146,7 +166,52 @@ export function Sidebar({
   }
 
   const handleMoveChatToFolder = (chatId: string, folderId?: string) => {
-    updateChat(chatId, { folderId })
+    moveChatToFolder(chatId, folderId)
+  }
+
+  const handleCreateFolder = (data: any) => {
+    createFolder(data)
+    setCreateFolderOpen(false)
+  }
+
+  const handleEditFolder = (folder: any) => {
+    setEditingFolder(folder)
+    setCreateFolderOpen(true)
+  }
+
+  const handleUpdateFolder = (data: any) => {
+    if (editingFolder) {
+      updateFolder(editingFolder.id, data)
+      setEditingFolder(null)
+    }
+    setCreateFolderOpen(false)
+  }
+
+  const handleDeleteFolder = (folderId: string) => {
+    const folder = folders.find(f => f.id === folderId)
+    if (folder) {
+      setFolderToDelete(folder)
+      setDeleteFolderOpen(true)
+    }
+  }
+
+  const confirmDeleteFolder = () => {
+    if (folderToDelete) {
+      deleteFolder(folderToDelete.id)
+      setFolderToDelete(null)
+    }
+  }
+
+  const toggleFolderExpansion = (folderId: string) => {
+    setExpandedFolders(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(folderId)) {
+        newSet.delete(folderId)
+      } else {
+        newSet.add(folderId)
+      }
+      return newSet
+    })
   }
 
   const handleLogout = () => {
@@ -417,30 +482,36 @@ export function Sidebar({
               variant="ghost"
               size="sm"
               className="w-full justify-start mb-2"
+              onClick={() => setCreateFolderOpen(true)}
             >
               <Plus className="mr-2 h-4 w-4" />
               Create folder
             </Button>
             
-            {folders.map((folder) => (
-              <div
-                key={folder.id}
-                className={cn(
-                  "flex items-center justify-between rounded-lg p-2 text-sm hover:bg-accent cursor-pointer transition-all duration-200 hover:scale-[1.02]",
-                  isCollapsed && "justify-center"
-                )}
-                title={folder.name}
-              >
-                {!isCollapsed && (
-                  <>
-                    <span className="truncate">{folder.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {folder.count}
-                    </span>
-                  </>
-                )}
+            {folders.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-muted-foreground/25 p-3 text-center text-xs text-muted-foreground">
+                <Folder className="h-4 w-4 mx-auto mb-1" />
+                No folders yet. Create one to organize your chats.
               </div>
-            ))}
+            ) : (
+              folders.map((folder) => (
+                <FolderRow
+                  key={folder.id}
+                  folder={folder}
+                  folders={folders}
+                  chats={chats}
+                  isExpanded={expandedFolders.has(folder.id)}
+                  onToggle={() => toggleFolderExpansion(folder.id)}
+                  onEdit={handleEditFolder}
+                  onDelete={handleDeleteFolder}
+                  onChatClick={handleChatClick}
+                  onMoveChatToFolder={handleMoveChatToFolder}
+                  onTogglePin={togglePin}
+                  onDeleteChat={handleDeleteChat}
+                  isCollapsed={isCollapsed}
+                />
+              ))
+            )}
           </SidebarSection>
 
           {/* Templates */}
@@ -508,6 +579,22 @@ export function Sidebar({
         onOpenChange={setDeleteConfirmOpen}
         chatTitle={chatToDelete ? chats.find(c => c.id === chatToDelete)?.title || "this chat" : ""}
         onConfirm={confirmDeleteChat}
+      />
+      
+      <CreateFolderModal
+        open={createFolderOpen}
+        onOpenChange={setCreateFolderOpen}
+        onCreateFolder={editingFolder ? handleUpdateFolder : handleCreateFolder}
+        isEditing={!!editingFolder}
+        initialData={editingFolder}
+      />
+      
+      <DeleteFolderDialog
+        open={deleteFolderOpen}
+        onOpenChange={setDeleteFolderOpen}
+        folderName={folderToDelete?.name || ""}
+        chatCount={folderToDelete?.chatIds?.length || 0}
+        onConfirm={confirmDeleteFolder}
       />
     </>
   )
