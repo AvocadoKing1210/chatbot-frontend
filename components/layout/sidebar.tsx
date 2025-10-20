@@ -30,6 +30,7 @@ import { Bot } from "lucide-react"
 import SearchModal from "@/components/layout/search-modal"
 import { DeleteChatDialog } from "@/components/ui/confirmation-dialog"
 import { DeleteFolderDialog } from "@/components/ui/delete-folder-dialog"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
 
 
 interface SidebarProps {
@@ -68,6 +69,7 @@ export function Sidebar({
   const { 
     chats, 
     folders, 
+    isLoading,
     createChat, 
     setCurrentChat, 
     togglePin, 
@@ -437,7 +439,12 @@ export function Sidebar({
             collapsed={collapsedSections.pinned}
             onToggle={() => toggleSection("pinned")}
           >
-            {chats.filter(chat => chat.pinned).length === 0 ? (
+            {isLoading ? (
+              <div className="flex items-center justify-center p-3">
+                <LoadingSpinner size="sm" />
+                <span className="ml-2 text-xs text-muted-foreground">Loading pinned chats...</span>
+              </div>
+            ) : chats.filter(chat => chat.pinned).length === 0 ? (
               <div className="rounded-lg border border-dashed border-muted-foreground/25 p-3 text-center text-xs text-muted-foreground">
                 Pin important chats for quick access.
               </div>
@@ -462,7 +469,12 @@ export function Sidebar({
             collapsed={collapsedSections.recent}
             onToggle={() => toggleSection("recent")}
           >
-            {chats.filter(chat => !chat.pinned).length === 0 ? (
+            {isLoading ? (
+              <div className="flex items-center justify-center p-3">
+                <LoadingSpinner size="sm" />
+                <span className="ml-2 text-xs text-muted-foreground">Loading recent chats...</span>
+              </div>
+            ) : chats.filter(chat => !chat.pinned).length === 0 ? (
               <div className="rounded-lg border border-dashed border-muted-foreground/25 p-3 text-center text-xs text-muted-foreground">
                 No conversations yet. Start a new one!
               </div>
@@ -500,7 +512,12 @@ export function Sidebar({
               Create folder
             </Button>
             
-            {folders.length === 0 ? (
+            {isLoading ? (
+              <div className="flex items-center justify-center p-3">
+                <LoadingSpinner size="sm" />
+                <span className="ml-2 text-xs text-muted-foreground">Loading folders...</span>
+              </div>
+            ) : folders.length === 0 ? (
               <div className="rounded-lg border border-dashed border-muted-foreground/25 p-3 text-center text-xs text-muted-foreground">
                 <Folder className="h-4 w-4 mx-auto mb-1" />
                 No folders yet. Create one to organize your chats.

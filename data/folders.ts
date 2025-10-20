@@ -1,48 +1,85 @@
-export interface FolderItem {
-  id: string
-  name: string
-  description?: string
-  createdAt: string
-  updatedAt: string
-  chatIds: string[]
+import { db } from '@/lib/database'
+import type { FolderItem, CreateFolderData } from '@/lib/database'
+
+// Re-export types for backward compatibility
+export type { FolderItem, CreateFolderData }
+
+// Real data functions using Supabase
+export async function getFolders(userId: string): Promise<FolderItem[]> {
+  try {
+    const folders = await db.getFolders(userId)
+    return folders.map(folder => ({
+      id: folder.id,
+      name: folder.name,
+      description: folder.description || undefined,
+      createdAt: folder.created_at || new Date().toISOString(),
+      updatedAt: folder.updated_at || folder.created_at || new Date().toISOString(),
+      chatIds: folder.chats?.map(c => c.id) || []
+    }))
+  } catch (error) {
+    console.error('Error fetching folders:', error)
+    return []
+  }
 }
 
-export interface CreateFolderData {
-  name: string
-  description?: string
+export async function createFolder(userId: string, data: CreateFolderData): Promise<FolderItem> {
+  try {
+    const folder = await db.createFolder({
+      name: data.name,
+      description: data.description || null,
+      user_id: userId
+    })
+    
+    return {
+      id: folder.id,
+      name: folder.name,
+      description: folder.description || undefined,
+      createdAt: folder.created_at || new Date().toISOString(),
+      updatedAt: folder.updated_at || folder.created_at || new Date().toISOString(),
+      chatIds: []
+    }
+  } catch (error) {
+    console.error('Error creating folder:', error)
+    throw error
+  }
 }
 
-// Mock data for demo
-export const folders: FolderItem[] = [
-  { 
-    id: "1", 
-    name: "Work Projects", 
-    description: "Professional development and work-related conversations",
-    createdAt: "2024-01-10T09:00:00Z",
-    updatedAt: "2024-01-15T14:30:00Z",
-    chatIds: ["1", "6", "7"]
-  },
-  { 
-    id: "2", 
-    name: "Personal", 
-    description: "Personal projects and learning",
-    createdAt: "2024-01-12T10:15:00Z",
-    updatedAt: "2024-01-14T16:45:00Z",
-    chatIds: ["2", "3"]
-  },
-  { 
-    id: "3", 
-    name: "Code Reviews", 
-    description: "Code review discussions and feedback",
-    createdAt: "2024-01-08T11:30:00Z",
-    updatedAt: "2024-01-13T09:20:00Z",
-    chatIds: ["4", "5"]
-  },
-]
+export async function updateFolder(folderId: string, updates: Partial<FolderItem>): Promise<FolderItem> {
+  try {
+    const folder = await db.updateFolder(folderId, {
+      name: updates.name,
+      description: updates.description || null
+    })
+    
+    return {
+      id: folder.id,
+      name: folder.name,
+      description: folder.description || undefined,
+      createdAt: folder.created_at || new Date().toISOString(),
+      updatedAt: folder.updated_at || folder.created_at || new Date().toISOString(),
+      chatIds: updates.chatIds || []
+    }
+  } catch (error) {
+    console.error('Error updating folder:', error)
+    throw error
+  }
+}
 
-// Utility functions for folder management
+export async function deleteFolder(folderId: string): Promise<void> {
+  try {
+    await db.deleteFolder(folderId)
+  } catch (error) {
+    console.error('Error deleting folder:', error)
+    throw error
+  }
+}
+
+// Legacy mock data (kept for backward compatibility during transition)
+export const folders: FolderItem[] = []
+
+// Utility functions for folder management (client-side operations)
 export const createNewFolder = (data: CreateFolderData): FolderItem => {
-  const id = Date.now().toString()
+  const id = crypto.randomUUID()
   const now = new Date().toISOString()
   
   return {
@@ -55,7 +92,7 @@ export const createNewFolder = (data: CreateFolderData): FolderItem => {
   }
 }
 
-export const updateFolder = (folder: FolderItem, updates: Partial<FolderItem>): FolderItem => {
+export const updateFolderItem = (folder: FolderItem, updates: Partial<FolderItem>): FolderItem => {
   return {
     ...folder,
     ...updates,
@@ -98,4 +135,14 @@ export const moveChatBetweenFolders = (
     }
     return folder
   })
+}
+
+// Database operations for moving chats between folders
+export async function moveChatToFolder(chatId: string, folderId: string | null): Promise<void> {
+  try {
+    await db.updateChat(chatId, { folder_id: folderId })
+  } catch (error) {
+    console.error('Error moving chat to folder:', error)
+    throw error
+  }
 }

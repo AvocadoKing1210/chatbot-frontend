@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useAuth } from "@/components/providers/auth-provider"
 import { 
   ChatItem, 
   Message, 
@@ -9,8 +10,14 @@ import {
   addMessageToChat, 
   updateChatTitle, 
   updateChatTags,
-  pinnedChats,
-  recentChats
+  getChats,
+  getPinnedChats,
+  getRecentChats,
+  createChat,
+  updateChat,
+  deleteChat,
+  addMessageToChatDB,
+  updateChatTagsInDB
 } from "@/data/chats"
 import { 
   FolderItem, 
@@ -20,7 +27,11 @@ import {
   addChatToFolder, 
   removeChatFromFolder, 
   moveChatBetweenFolders,
-  folders as initialFolders
+  getFolders,
+  createFolder,
+  updateFolder,
+  deleteFolder,
+  moveChatToFolder
 } from "@/data/folders"
 
 interface ChatContextType {
@@ -36,18 +47,21 @@ interface ChatContextType {
   folders: FolderItem[]
   setFolders: React.Dispatch<React.SetStateAction<FolderItem[]>>
   
+  // Loading states
+  isLoading: boolean
+  
   // Chat operations
-  createChat: (data: CreateChatData) => ChatItem
-  addMessage: (chatId: string, content: string, role: 'user' | 'assistant') => string
-  updateChat: (chatId: string, updates: Partial<ChatItem>) => void
-  deleteChat: (chatId: string) => void
-  togglePin: (chatId: string) => void
+  createChat: (data: CreateChatData) => Promise<ChatItem>
+  addMessage: (chatId: string, content: string, role: 'user' | 'assistant') => Promise<string>
+  updateChat: (chatId: string, updates: Partial<ChatItem>) => Promise<void>
+  deleteChat: (chatId: string) => Promise<void>
+  togglePin: (chatId: string) => Promise<void>
   
   // Folder operations
-  createFolder: (data: CreateFolderData) => FolderItem
-  updateFolder: (folderId: string, updates: Partial<FolderItem>) => void
-  deleteFolder: (folderId: string) => void
-  moveChatToFolder: (chatId: string, folderId?: string) => void
+  createFolder: (data: CreateFolderData) => Promise<FolderItem>
+  updateFolder: (folderId: string, updates: Partial<FolderItem>) => Promise<void>
+  deleteFolder: (folderId: string) => Promise<void>
+  moveChatToFolder: (chatId: string, folderId?: string) => Promise<void>
   
   // AI response simulation
   generateAIResponse: (userMessage: string) => string
@@ -68,10 +82,44 @@ interface ChatProviderProps {
 }
 
 export function ChatProvider({ children }: ChatProviderProps) {
+  const { user } = useAuth()
   const [currentChat, setCurrentChat] = React.useState<ChatItem | null>(null)
-  const [chats, setChats] = React.useState<ChatItem[]>([...pinnedChats, ...recentChats])
-  const [folders, setFolders] = React.useState<FolderItem[]>(initialFolders)
+  const [chats, setChats] = React.useState<ChatItem[]>([])
+  const [folders, setFolders] = React.useState<FolderItem[]>([])
+  const [isLoading, setIsLoading] = React.useState(true)
   
+  // Load data when user is authenticated
+  React.useEffect(() => {
+    if (user?.id) {
+      loadUserData()
+    } else {
+      setChats([])
+      setFolders([])
+      setIsLoading(false)
+    }
+  }, [user?.id])
+
+  const loadUserData = async () => {
+    if (!user?.id) return
+    
+    try {
+      setIsLoading(true)
+      
+      // Fetch chats and folders in parallel
+      const [userChats, userFolders] = await Promise.all([
+        getChats(user.id),
+        getFolders(user.id)
+      ])
+      
+      setChats(userChats)
+      setFolders(userFolders)
+    } catch (error) {
+      console.error('Error loading user data:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   // Filter out empty chats (chats with no messages) for display purposes
   const nonEmptyChats = React.useMemo(() => 
     chats.filter(chat => chat.messages.length > 0), 
@@ -825,152 +873,238 @@ pipeline.save_model('model.pkl')
     return responses[randomIndex]
   }, [])
 
-  const createChat = React.useCallback((data: CreateChatData): ChatItem => {
-    const newChat = createNewChat(data)
-    setChats(prev => [newChat, ...prev])
+  const createChatHandler = React.useCallback(async (data: CreateChatData): Promise<ChatItem> => {
+    if (!user?.id) throw new Error('User not authenticated')
     
-    // Only set as current chat if it has an initial message
-    if (data.initialMessage) {
-      setCurrentChat(newChat)
+    try {
+      const newChat = await createChat(user.id, data)
+      setChats(prev => [newChat, ...prev])
+      
+      // Only set as current chat if it has an initial message
+      if (data.initialMessage) {
+        setCurrentChat(newChat)
+      }
+      
+      return newChat
+    } catch (error) {
+      console.error('Error creating chat:', error)
+      throw error
     }
-    
-    return newChat
-  }, [])
+  }, [user?.id])
 
-  const addMessage = React.useCallback((chatId: string, content: string, role: 'user' | 'assistant') => {
-    let messageId = ''
-    setChats(prev => {
-      const updatedChats = prev.map(chat => {
-        if (chat.id === chatId) {
-          const updatedChat = addMessageToChat(chat, content, role)
-          // Get the ID of the newly added message
-          messageId = updatedChat.messages[updatedChat.messages.length - 1].id
-          if (currentChat?.id === chatId) {
-            setCurrentChat(updatedChat)
+  const addMessage = React.useCallback(async (chatId: string, content: string, role: 'user' | 'assistant'): Promise<string> => {
+    try {
+      // Add message to database
+      const newMessage = await addMessageToChatDB(chatId, content, role)
+      
+      // Update local state
+      setChats(prev => {
+        const updatedChats = prev.map(chat => {
+          if (chat.id === chatId) {
+            const updatedChat = addMessageToChat(chat, content, role)
+            if (currentChat?.id === chatId) {
+              setCurrentChat(updatedChat)
+            }
+            return updatedChat
           }
-          return updatedChat
-        }
-        return chat
+          return chat
+        })
+        return updatedChats
       })
-      return updatedChats
-    })
-    return messageId
-  }, [currentChat])
-
-  const updateChat = React.useCallback((chatId: string, updates: Partial<ChatItem>) => {
-    setChats(prev => {
-      const updatedChats = prev.map(chat => {
-        if (chat.id === chatId) {
-          // Only update timestamp for meaningful changes (not just mode/chart toggles)
-          const shouldUpdateTimestamp = updates.title || updates.tags || updates.messages
-          const updatedChat = { 
-            ...chat, 
-            ...updates, 
-            ...(shouldUpdateTimestamp && { updatedAt: new Date().toISOString() })
-          }
-          
-          // Only update currentChat for meaningful changes to prevent message bouncing
-          if (currentChat?.id === chatId && (updates.title || updates.tags || updates.messages)) {
-            setCurrentChat(updatedChat)
-          }
-          
-          return updatedChat
-        }
-        return chat
-      })
-      return updatedChats
-    })
-  }, [currentChat])
-
-  const deleteChat = React.useCallback((chatId: string) => {
-    setChats(prev => prev.filter(chat => chat.id !== chatId))
-    if (currentChat?.id === chatId) {
-      setCurrentChat(null)
+      
+      return newMessage.id
+    } catch (error) {
+      console.error('Error adding message:', error)
+      throw error
     }
   }, [currentChat])
 
-  const togglePin = React.useCallback((chatId: string) => {
-    setChats(prev => {
-      const updatedChats = prev.map(chat => {
-        if (chat.id === chatId) {
-          const updatedChat = { 
-            ...chat, 
-            pinned: !chat.pinned,
-            updatedAt: new Date().toISOString()
+  const updateChatHandler = React.useCallback(async (chatId: string, updates: Partial<ChatItem>) => {
+    try {
+      // Update in database
+      await updateChat(chatId, updates)
+      
+      // Update local state
+      setChats(prev => {
+        const updatedChats = prev.map(chat => {
+          if (chat.id === chatId) {
+            // Only update timestamp for meaningful changes (not just mode/chart toggles)
+            const shouldUpdateTimestamp = updates.title || updates.tags || updates.messages
+            const updatedChat = { 
+              ...chat, 
+              ...updates, 
+              // Update preview to match title when title changes
+              ...(updates.title && { preview: updates.title }),
+              ...(shouldUpdateTimestamp && { updatedAt: new Date().toISOString() })
+            }
+            
+            // Only update currentChat for meaningful changes to prevent message bouncing
+            if (currentChat?.id === chatId && (updates.title || updates.tags || updates.messages)) {
+              setCurrentChat(updatedChat)
+            }
+            
+            return updatedChat
           }
-          
-          // Update currentChat if it's the one being pinned/unpinned
-          if (currentChat?.id === chatId) {
-            setCurrentChat(updatedChat)
-          }
-          
-          return updatedChat
-        }
-        return chat
+          return chat
+        })
+        return updatedChats
       })
-      return updatedChats
-    })
+    } catch (error) {
+      console.error('Error updating chat:', error)
+      throw error
+    }
   }, [currentChat])
+
+  const deleteChatHandler = React.useCallback(async (chatId: string) => {
+    try {
+      // Delete from database
+      await deleteChat(chatId)
+      
+      // Update local state
+      setChats(prev => prev.filter(chat => chat.id !== chatId))
+      if (currentChat?.id === chatId) {
+        setCurrentChat(null)
+      }
+    } catch (error) {
+      console.error('Error deleting chat:', error)
+      throw error
+    }
+  }, [currentChat])
+
+  const togglePin = React.useCallback(async (chatId: string) => {
+    try {
+      const chat = chats.find(c => c.id === chatId)
+      if (!chat) return
+      
+      // Update in database
+      await updateChat(chatId, { pinned: !chat.pinned })
+      
+      // Update local state
+      setChats(prev => {
+        const updatedChats = prev.map(chat => {
+          if (chat.id === chatId) {
+            const updatedChat = { 
+              ...chat, 
+              pinned: !chat.pinned,
+              updatedAt: new Date().toISOString()
+            }
+            
+            // Update currentChat if it's the one being pinned/unpinned
+            if (currentChat?.id === chatId) {
+              setCurrentChat(updatedChat)
+            }
+            
+            return updatedChat
+          }
+          return chat
+        })
+        return updatedChats
+      })
+    } catch (error) {
+      console.error('Error toggling pin:', error)
+      throw error
+    }
+  }, [currentChat, chats])
 
   // Folder operations
-  const createFolder = React.useCallback((data: CreateFolderData): FolderItem => {
-    const newFolder = createNewFolder(data)
-    setFolders(prev => [newFolder, ...prev])
-    return newFolder
-  }, [])
-
-  const updateFolder = React.useCallback((folderId: string, updates: Partial<FolderItem>) => {
-    setFolders(prev => {
-      const updatedFolders = prev.map(folder => {
-        if (folder.id === folderId) {
-          return updateFolderUtil(folder, updates)
-        }
-        return folder
-      })
-      return updatedFolders
-    })
-  }, [])
-
-  const deleteFolder = React.useCallback((folderId: string) => {
-    setFolders(prev => prev.filter(folder => folder.id !== folderId))
+  const createFolderHandler = React.useCallback(async (data: CreateFolderData): Promise<FolderItem> => {
+    if (!user?.id) throw new Error('User not authenticated')
     
-    // Remove folderId from all chats that were in this folder
-    setChats(prev => {
-      const updatedChats = prev.map(chat => {
-        if (chat.folderId === folderId) {
-          return { ...chat, folderId: undefined }
-        }
-        return chat
+    try {
+      const newFolder = await createFolder(user.id, data)
+      setFolders(prev => [newFolder, ...prev])
+      return newFolder
+    } catch (error) {
+      console.error('Error creating folder:', error)
+      throw error
+    }
+  }, [user?.id])
+
+  const updateFolderHandler = React.useCallback(async (folderId: string, updates: Partial<FolderItem>) => {
+    try {
+      // Update in database
+      await updateFolder(folderId, {
+        name: updates.name,
+        description: updates.description
       })
-      return updatedChats
-    })
+      
+      // Update local state
+      setFolders(prev => {
+        const updatedFolders = prev.map(folder => {
+          if (folder.id === folderId) {
+            return {
+              ...folder,
+              ...updates,
+              updatedAt: new Date().toISOString()
+            }
+          }
+          return folder
+        })
+        return updatedFolders
+      })
+    } catch (error) {
+      console.error('Error updating folder:', error)
+      throw error
+    }
   }, [])
 
-  const moveChatToFolder = React.useCallback((chatId: string, folderId?: string) => {
-    // Update chat's folderId
-    setChats(prev => {
-      const updatedChats = prev.map(chat => {
-        if (chat.id === chatId) {
-          return { ...chat, folderId }
-        }
-        return chat
+  const deleteFolderHandler = React.useCallback(async (folderId: string) => {
+    try {
+      // Delete from database
+      await deleteFolder(folderId)
+      
+      // Update local state
+      setFolders(prev => prev.filter(folder => folder.id !== folderId))
+      
+      // Remove folderId from all chats that were in this folder
+      setChats(prev => {
+        const updatedChats = prev.map(chat => {
+          if (chat.folderId === folderId) {
+            return { ...chat, folderId: undefined }
+          }
+          return chat
+        })
+        return updatedChats
       })
-      return updatedChats
-    })
+    } catch (error) {
+      console.error('Error deleting folder:', error)
+      throw error
+    }
+  }, [])
 
-    // Update folder's chatIds
-    setFolders(prev => {
-      return prev.map(folder => {
-        if (folderId && folder.id === folderId) {
-          // Add chat to target folder
-          return addChatToFolder(folder, chatId)
-        } else if (folder.chatIds.includes(chatId)) {
-          // Remove chat from current folder
-          return removeChatFromFolder(folder, chatId)
-        }
-        return folder
+  const moveChatToFolderHandler = React.useCallback(async (chatId: string, folderId?: string) => {
+    try {
+      // Update in database
+      await moveChatToFolder(chatId, folderId || null)
+      
+      // Update local state
+      setChats(prev => {
+        const updatedChats = prev.map(chat => {
+          if (chat.id === chatId) {
+            return { ...chat, folderId }
+          }
+          return chat
+        })
+        return updatedChats
       })
-    })
+
+      // Update folder's chatIds
+      setFolders(prev => {
+        return prev.map(folder => {
+          if (folderId && folder.id === folderId) {
+            // Add chat to target folder
+            return addChatToFolder(folder, chatId)
+          } else if (folder.chatIds.includes(chatId)) {
+            // Remove chat from current folder
+            return removeChatFromFolder(folder, chatId)
+          }
+          return folder
+        })
+      })
+    } catch (error) {
+      console.error('Error moving chat to folder:', error)
+      throw error
+    }
   }, [])
 
   const value: ChatContextType = {
@@ -980,15 +1114,16 @@ pipeline.save_model('model.pkl')
     setChats,
     folders,
     setFolders,
-    createChat,
+    isLoading,
+    createChat: createChatHandler,
     addMessage,
-    updateChat,
-    deleteChat,
+    updateChat: updateChatHandler,
+    deleteChat: deleteChatHandler,
     togglePin,
-    createFolder,
-    updateFolder,
-    deleteFolder,
-    moveChatToFolder,
+    createFolder: createFolderHandler,
+    updateFolder: updateFolderHandler,
+    deleteFolder: deleteFolderHandler,
+    moveChatToFolder: moveChatToFolderHandler,
     generateAIResponse
   }
 

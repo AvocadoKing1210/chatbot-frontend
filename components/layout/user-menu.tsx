@@ -1,8 +1,6 @@
-"use client"
+'use client'
 
-import * as React from "react"
 import { useState } from "react"
-import { LogOut, User, Loader2 } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,62 +12,52 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/components/providers/auth-provider"
-import { defaultUser } from "@/data"
+import { getUserProfileFromAuth, getUserInitials } from "@/lib/auth/user-utils"
+import { LogOut, Mail } from "lucide-react"
+import { GoogleIcon } from "@/components/ui/google-icon"
+import type { User } from "@/data/user"
 
 interface UserMenuProps {
-  user?: {
-    name: string
-    email: string
-    avatar?: string
-    workspace?: string
-  }
+  user?: User
   onLogout?: () => void
 }
 
-export function UserMenu({ 
+export function UserMenu({
   user,
   onLogout
 }: UserMenuProps) {
   const { user: authUser, signOut } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
-  
-  // Use authenticated user data if available, otherwise fall back to default
-  const displayUser = authUser ? {
-    name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
-    email: authUser.email || '',
-    avatar: authUser.user_metadata?.avatar_url,
-    workspace: user?.workspace
-  } : (user || defaultUser)
 
-  const initials = displayUser.name
-    .split(" ")
-    .map((n: string) => n[0])
-    .join("")
-    .toUpperCase()
+  // Get user profile directly from auth data - no database calls needed!
+  const displayUser = authUser ? getUserProfileFromAuth(authUser) : (user || {
+    name: 'Guest',
+    email: '',
+    avatar: undefined,
+    provider: 'email'
+  })
+
+  const initials = getUserInitials(displayUser.name)
+
+  // Get provider icon
+  const getProviderIcon = (provider: string) => {
+    switch (provider.toLowerCase()) {
+      case 'google':
+        return <GoogleIcon className="h-3 w-3" />
+      case 'email':
+        return <Mail className="h-3 w-3" />
+      default:
+        return <Mail className="h-3 w-3" />
+    }
+  }
 
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true)
-      
-      if (onLogout) {
-        // Use the logout function passed from parent (sidebar)
-        await onLogout()
-      } else {
-        // Fallback to direct Supabase logout
-        console.log('Signing out user...')
-        const { error } = await signOut()
-        if (error) {
-          console.error('Logout error:', error)
-          alert('Failed to sign out. Please try again.')
-        } else {
-          console.log('Successfully signed out')
-          // The auth state change will be handled by the auth provider
-          // and the user will be redirected by the middleware
-        }
-      }
+      await signOut()
+      onLogout?.()
     } catch (error) {
       console.error('Logout error:', error)
-      alert('Failed to sign out. Please try again.')
     } finally {
       setIsLoggingOut(false)
     }
@@ -88,9 +76,9 @@ export function UserMenu({
             </Avatar>
             <div className="flex flex-col items-start min-w-0 flex-1">
               <span className="text-sm font-medium truncate">{displayUser.name}</span>
-              {displayUser.workspace && (
+              {displayUser.email && (
                 <span className="text-xs text-muted-foreground truncate">
-                  {displayUser.workspace}
+                  {displayUser.email}
                 </span>
               )}
             </div>
@@ -99,30 +87,35 @@ export function UserMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{displayUser.name}</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {displayUser.email}
-            </p>
+          <div className="flex flex-col space-y-2">
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm font-medium leading-none">{displayUser.name}</p>
+              <p className="text-xs leading-none text-muted-foreground">
+                {displayUser.email}
+              </p>
+            </div>
+            {displayUser.provider && (
+              <>
+                <div className="border-t border-border/50"></div>
+                <div className="flex flex-col space-y-1 text-xs text-muted-foreground">
+                  <span className="font-medium">Provider:</span>
+                  <div className="flex items-center gap-1">
+                    {getProviderIcon(displayUser.provider)}
+                    <span className="capitalize">{displayUser.provider}</span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem 
-          onClick={handleLogout} 
-          className="text-red-600"
+          className="cursor-pointer text-red-600 focus:text-red-600"
+          onClick={handleLogout}
           disabled={isLoggingOut}
         >
-          {isLoggingOut ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              <span>Signing out...</span>
-            </>
-          ) : (
-            <>
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
-            </>
-          )}
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>{isLoggingOut ? 'Signing out...' : 'Log out'}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

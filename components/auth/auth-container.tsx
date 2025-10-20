@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/components/providers/auth-provider'
 import { LoginForm } from './login-form'
 import { SignupForm } from './signup-form'
+import { LoadingState } from '@/components/ui/loading-spinner'
 
 export function AuthContainer() {
   const [isLogin, setIsLogin] = useState(true)
@@ -28,12 +29,11 @@ export function AuthContainer() {
   // Show loading while checking auth status
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="flex items-center gap-2">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <span className="text-sm text-muted-foreground">Loading...</span>
-        </div>
-      </div>
+      <LoadingState
+        title="Loading..."
+        description="Please wait while we verify your authentication."
+        className="min-h-screen bg-background p-4"
+      />
     )
   }
 
