@@ -1,12 +1,16 @@
+// Simplified user data - no database calls needed!
+// User data comes directly from Supabase Auth
+
 export interface User {
   name: string
   email: string
   avatar?: string
-  workspace?: string
+  provider?: string
 }
 
+// Default user for fallback (when not authenticated)
 export const defaultUser: User = {
-  name: "John Doe",
-  email: "john@example.com",
-  workspace: "Pro workspace"
+  name: "Guest",
+  email: "",
+  provider: "email"
 }

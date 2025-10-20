@@ -127,9 +127,9 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
       const userMessage = chat.messages[0].content
       setIsLoading(true)
       
-      const timeoutId = window.setTimeout(() => {
+      const timeoutId = window.setTimeout(async () => {
         const aiResponse = generateAIResponse(userMessage)
-        const messageId = addMessage(chat.id, aiResponse, 'assistant')
+        const messageId = await addMessage(chat.id, aiResponse, 'assistant')
         
         // Mark the new AI message for streaming
         if (messageId) {
@@ -158,9 +158,9 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
     // Do not clear stopped ids immediately to ensure StreamingResponse receives the stop signal
 
     // Simulate AI response delay
-    const timeoutId = window.setTimeout(() => {
+    const timeoutId = window.setTimeout(async () => {
       const aiResponse = generateAIResponse(message)
-      const messageId = addMessage(chat.id, aiResponse, 'assistant')
+      const messageId = await addMessage(chat.id, aiResponse, 'assistant')
       
       // Mark the new AI message for streaming
       if (messageId) {
@@ -249,9 +249,9 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
           c.id === chat.id ? { ...c, messages: updatedMessages } : c
         ))
         // Trigger regeneration
-        const timeoutId = window.setTimeout(() => {
+        const timeoutId = window.setTimeout(async () => {
           const aiResponse = generateAIResponse(previousMessage.content)
-          const newMessageId = addMessage(chat.id, aiResponse, 'assistant')
+          const newMessageId = await addMessage(chat.id, aiResponse, 'assistant')
           
           // Mark the regenerated message for streaming
           if (newMessageId) {
