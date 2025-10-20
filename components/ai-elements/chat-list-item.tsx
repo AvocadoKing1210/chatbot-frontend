@@ -304,7 +304,7 @@ export function ChatListItem({ chat, onClick, onTogglePin, onDelete, onMoveToFol
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-destructive/10 hover:text-destructive rounded-full bg-background border border-border shadow-sm"
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-destructive/10 hover:text-destructive"
                     onClick={(e) => {
                       e.stopPropagation()
                       onTogglePin(chat.id)
