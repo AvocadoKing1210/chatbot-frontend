@@ -3,6 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
+import { useAuth } from "@/components/providers/auth-provider"
 import { 
   PanelLeftClose, 
   PanelLeftOpen, 
@@ -46,6 +47,7 @@ export function Sidebar({
   onToggleCollapse,
   className,
 }: SidebarProps) {
+  const { signOut } = useAuth()
   const [searchQuery, setSearchQuery] = React.useState("")
   const [isSearchOpen, setIsSearchOpen] = React.useState(false)
   const [collapsedSections, setCollapsedSections] = React.useState({
@@ -211,9 +213,22 @@ export function Sidebar({
     })
   }
 
-  const handleLogout = () => {
-    // In a real app, this would handle logout
-    console.log("Logging out...")
+  const handleLogout = async () => {
+    try {
+      console.log("Logout triggered from sidebar...")
+      const { error } = await signOut()
+      if (error) {
+        console.error('Logout error:', error)
+        alert('Failed to sign out. Please try again.')
+      } else {
+        console.log('Successfully signed out from sidebar')
+        // Immediately redirect to login page
+        router.push('/login')
+      }
+    } catch (error) {
+      console.error('Logout error:', error)
+      alert('Failed to sign out. Please try again.')
+    }
   }
 
   const handleSettings = () => {
