@@ -11,6 +11,7 @@ export interface ChatItem {
   preview: string
   updatedAt: string
   pinned?: boolean
+  folderId?: string
   tags?: string[]
   messages: Message[]
   mode: 'sql' | 'python'
@@ -33,6 +34,7 @@ export const pinnedChats: ChatItem[] = [
     preview: "Design discussion about UI components...",
     updatedAt: "2024-01-15T10:30:00Z",
     pinned: true,
+    folderId: "1",
     tags: ["design", "ui"],
     mode: "sql",
     chartEnabled: true,
@@ -51,6 +53,56 @@ export const pinnedChats: ChatItem[] = [
       }
     ]
   },
+  {
+    id: "6",
+    title: "Database Optimization Guide",
+    preview: "Performance tuning and query optimization techniques...",
+    updatedAt: "2024-01-16T14:20:00Z",
+    pinned: true,
+    folderId: "1",
+    tags: ["database", "performance", "sql"],
+    mode: "sql",
+    chartEnabled: true,
+    messages: [
+      {
+        id: "6-1",
+        content: "How can I optimize my database queries for better performance?",
+        role: "user",
+        timestamp: "2024-01-16T14:20:00Z"
+      },
+      {
+        id: "6-2",
+        content: "Database optimization is crucial for application performance. Here are the key strategies:\n\n## Indexing Strategy\n- Create indexes on frequently queried columns\n- Use composite indexes for multi-column queries\n- Monitor index usage with `EXPLAIN ANALYZE`\n\n## Query Optimization\n- Use `LIMIT` to reduce result sets\n- Avoid `SELECT *` in production\n- Use `JOIN` instead of subqueries when possible\n\n## Database Maintenance\n- Regular `VACUUM` and `ANALYZE` operations\n- Monitor slow query logs\n- Use connection pooling\n\nWould you like me to dive deeper into any specific optimization technique?",
+        role: "assistant",
+        timestamp: "2024-01-16T14:20:15Z"
+      }
+    ]
+  },
+  {
+    id: "7",
+    title: "React Performance Best Practices",
+    preview: "Memoization, lazy loading, and optimization techniques...",
+    updatedAt: "2024-01-17T09:15:00Z",
+    pinned: true,
+    folderId: "1",
+    tags: ["react", "performance", "optimization"],
+    mode: "python",
+    chartEnabled: false,
+    messages: [
+      {
+        id: "7-1",
+        content: "What are the best practices for optimizing React applications?",
+        role: "user",
+        timestamp: "2024-01-17T09:15:00Z"
+      },
+      {
+        id: "7-2",
+        content: "React performance optimization involves several key strategies:\n\n## Component Optimization\n- Use `React.memo()` for expensive components\n- Implement `useMemo()` for expensive calculations\n- Apply `useCallback()` for stable function references\n\n## Bundle Optimization\n- Code splitting with `React.lazy()`\n- Dynamic imports for route-based splitting\n- Tree shaking to eliminate dead code\n\n## Rendering Optimization\n- Avoid inline object/function creation in render\n- Use `key` prop correctly in lists\n- Minimize re-renders with proper state management\n\n## Development Tools\n- React DevTools Profiler\n- Bundle analyzers like `webpack-bundle-analyzer`\n- Performance monitoring with `React.StrictMode`\n\nWould you like me to show you specific examples of these optimizations?",
+        role: "assistant",
+        timestamp: "2024-01-17T09:15:20Z"
+      }
+    ]
+  },
 ]
 
 export const recentChats: ChatItem[] = [
@@ -59,6 +111,7 @@ export const recentChats: ChatItem[] = [
     title: "Chatbot app with UI",
     preview: "Implementation details for the chat interface...",
     updatedAt: "2024-01-14T15:45:00Z",
+    folderId: "2",
     tags: ["development", "react"],
     mode: "python",
     chartEnabled: false,
@@ -82,6 +135,7 @@ export const recentChats: ChatItem[] = [
     title: "Design Geist component",
     preview: "Working on the design system components...",
     updatedAt: "2024-01-13T09:20:00Z",
+    folderId: "2",
     tags: ["design-system", "components"],
     mode: "sql",
     chartEnabled: true,
@@ -105,7 +159,17 @@ export const recentChats: ChatItem[] = [
     title: "Data Analysis with Tables",
     preview: "Analyzing sales data and creating visualizations...",
     updatedAt: "2024-01-12T14:15:00Z",
-    tags: ["data-analysis", "tables", "charts"],
+    folderId: "3",
+    tags: [
+      "data-analysis",
+      "tables",
+      "charts",
+      "longer-tag-here",
+      "insights",
+      "dashboard",
+      "performance",
+      "metrics"
+    ],
     mode: "sql",
     chartEnabled: true,
     messages: [
@@ -140,7 +204,8 @@ export const recentChats: ChatItem[] = [
     title: "Query & Chart Test",
     preview: "Test SQL execution and chart generation",
     updatedAt: "2024-01-18T12:00:00Z",
-    tags: ["test", "sql", "charts"],
+    folderId: "3",
+    tags: ["test", "sql", "charts", "benchmarks", "optimizations", "longlonglongtag"],
     mode: "sql",
     chartEnabled: true,
     messages: [

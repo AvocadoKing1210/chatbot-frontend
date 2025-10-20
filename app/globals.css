@@ -122,6 +122,17 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Custom selection colors */
+  ::selection {
+    background-color: oklch(0.145 0 0); /* Black for light theme */
+    color: oklch(0.985 0 0); /* White text */
+  }
+  
+  .dark ::selection {
+    background-color: oklch(0.985 0 0); /* White for dark theme */
+    color: oklch(0.145 0 0); /* Black text */
+  }
 }
 
 @layer utilities {

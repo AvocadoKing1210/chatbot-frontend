@@ -11,7 +11,6 @@ import {
   Star, 
   Clock, 
   Folder, 
-  FileText,
   X
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -22,10 +21,14 @@ import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Kbd } from "@/components/ui/kbd"
 import { cn, getKeyboardShortcut } from "@/lib/utils"
-import { folders, templates } from "@/data"
 import { useChat } from "@/components/providers/chat-provider"
 import { ChatListItem } from "@/components/ai-elements/chat-list-item"
+import { FolderRow } from "@/components/layout/folder-row"
+import { CreateFolderModal } from "@/components/layout/create-folder-modal"
 import { Bot } from "lucide-react"
+import SearchModal from "@/components/layout/search-modal"
+import { DeleteChatDialog } from "@/components/ui/confirmation-dialog"
+import { DeleteFolderDialog } from "@/components/ui/delete-folder-dialog"
 
 
 interface SidebarProps {
@@ -44,16 +47,35 @@ export function Sidebar({
   className,
 }: SidebarProps) {
   const [searchQuery, setSearchQuery] = React.useState("")
+  const [isSearchOpen, setIsSearchOpen] = React.useState(false)
   const [collapsedSections, setCollapsedSections] = React.useState({
     pinned: false,
     recent: false,
     folders: false,
-    templates: false,
   })
   const [isMobile, setIsMobile] = React.useState(false)
   const [isInitialized, setIsInitialized] = React.useState(false)
   const [keyboardShortcut, setKeyboardShortcut] = React.useState("Ctrl + K")
-  const { chats, createChat, setCurrentChat } = useChat()
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false)
+  const [chatToDelete, setChatToDelete] = React.useState<string | null>(null)
+  const [deleteFolderOpen, setDeleteFolderOpen] = React.useState(false)
+  const [folderToDelete, setFolderToDelete] = React.useState<any>(null)
+  const [createFolderOpen, setCreateFolderOpen] = React.useState(false)
+  const [editingFolder, setEditingFolder] = React.useState<any>(null)
+  const [expandedFolders, setExpandedFolders] = React.useState<Set<string>>(new Set())
+  const { 
+    chats, 
+    folders, 
+    createChat, 
+    setCurrentChat, 
+    togglePin, 
+    deleteChat, 
+    updateChat,
+    createFolder,
+    updateFolder,
+    deleteFolder,
+    moveChatToFolder
+  } = useChat()
   const router = useRouter()
 
   React.useEffect(() => {
@@ -85,6 +107,28 @@ export function Sidebar({
     }
   }, [isMobile, isOpen])
 
+  // Global keyboard shortcut for search (Cmd/Ctrl + K)
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.contentEditable === 'true'
+      ) {
+        return
+      }
+      const isMac = navigator.platform.toLowerCase().includes('mac')
+      const modifierKey = isMac ? event.metaKey : event.ctrlKey
+      if (modifierKey && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setIsSearchOpen(true)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
 
   const toggleSection = (section: keyof typeof collapsedSections) => {
     setCollapsedSections(prev => ({
@@ -106,6 +150,67 @@ export function Sidebar({
     }
   }
 
+  const handleDeleteChat = (chatId: string) => {
+    setChatToDelete(chatId)
+    setDeleteConfirmOpen(true)
+  }
+
+  const confirmDeleteChat = () => {
+    if (chatToDelete) {
+      deleteChat(chatToDelete)
+      setChatToDelete(null)
+    }
+  }
+
+  const handleMoveChatToFolder = (chatId: string, folderId?: string) => {
+    moveChatToFolder(chatId, folderId)
+  }
+
+  const handleCreateFolder = (data: any) => {
+    createFolder(data)
+    setCreateFolderOpen(false)
+  }
+
+  const handleEditFolder = (folder: any) => {
+    setEditingFolder(folder)
+    setCreateFolderOpen(true)
+  }
+
+  const handleUpdateFolder = (data: any) => {
+    if (editingFolder) {
+      updateFolder(editingFolder.id, data)
+      setEditingFolder(null)
+    }
+    setCreateFolderOpen(false)
+  }
+
+  const handleDeleteFolder = (folderId: string) => {
+    const folder = folders.find(f => f.id === folderId)
+    if (folder) {
+      setFolderToDelete(folder)
+      setDeleteFolderOpen(true)
+    }
+  }
+
+  const confirmDeleteFolder = () => {
+    if (folderToDelete) {
+      deleteFolder(folderToDelete.id)
+      setFolderToDelete(null)
+    }
+  }
+
+  const toggleFolderExpansion = (folderId: string) => {
+    setExpandedFolders(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(folderId)) {
+        newSet.delete(folderId)
+      } else {
+        newSet.add(folderId)
+      }
+      return newSet
+    })
+  }
+
   const handleLogout = () => {
     // In a real app, this would handle logout
     console.log("Logging out...")
@@ -116,96 +221,7 @@ export function Sidebar({
     console.log("Opening settings...")
   }
 
-  // Collapsed sidebar view (desktop only)
-  if (isCollapsed && !isMobile) {
-    return (
-      <motion.aside
-        initial={{ width: 320 }}
-        animate={{ width: 64 }}
-        transition={{ type: "spring", stiffness: 260, damping: 28 }}
-        className={cn(
-          "flex h-full flex-col border-r bg-background",
-          className
-        )}
-      >
-        <div className="flex items-center justify-center border-b p-3">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onToggleCollapse}
-                className="h-8 w-8"
-              >
-                <PanelLeftOpen className="h-4 w-4" />
-                <span className="sr-only">Expand sidebar</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <div className="flex items-center gap-2">
-                <span>Expand Sidebar</span>
-                <Kbd>{getKeyboardShortcut('B')}</Kbd>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-
-        <div className="flex flex-col items-center gap-4 p-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleNewChat}
-            className="h-8 w-8"
-            title="New Chat"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="sr-only">New Chat</span>
-          </Button>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-              >
-                <Search className="h-4 w-4" />
-                <span className="sr-only">Search</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <div className="flex items-center gap-2">
-                <span>Search</span>
-                <Kbd>{getKeyboardShortcut('K')}</Kbd>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-              >
-                <Folder className="h-4 w-4" />
-                <span className="sr-only">Folders</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <div className="flex items-center gap-2">
-                <span>Folders</span>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-
-        <div className="mt-auto p-4">
-          <ThemeToggle />
-        </div>
-      </motion.aside>
-    )
-  }
+  // Removed separate collapsed render path to keep one persistent motion.aside
 
   return (
     <>
@@ -224,14 +240,20 @@ export function Sidebar({
       </AnimatePresence>
 
       <motion.aside
-        initial={{ x: -320 }}
-        animate={{ 
-          x: isInitialized ? (isMobile ? (isOpen ? 0 : -320) : 0) : -320,
+        initial={{ x: isMobile ? -320 : 0, width: 320 }}
+        animate={{
+          x: isInitialized ? (isMobile ? (isOpen ? 0 : -320) : 0) : (isMobile ? -320 : 0),
+          // Only animate width on desktop to avoid shifting content with transforms
           width: isInitialized ? (!isMobile && isCollapsed ? 64 : 320) : 320
         }}
-        transition={{ type: "spring", stiffness: 260, damping: 28 }}
+        transition={{
+          // Use a spring for width changes (desktop), keep mobile x slide snappy
+          type: "spring",
+          stiffness: 260,
+          damping: 28
+        }}
         className={cn(
-          "flex h-full flex-col border-r bg-background",
+          "flex h-full flex-col border-r bg-background overflow-hidden",
           isMobile ? "fixed inset-y-0 left-0 z-50" : "relative",
           className
         )}
@@ -239,13 +261,23 @@ export function Sidebar({
         {/* Header */}
         <div className="flex items-center justify-between border-b p-4">
           <div className="flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-foreground text-background shadow-sm">
+            <div
+              className={cn(
+                "grid h-8 w-8 shrink-0 place-items-center rounded-full shadow-sm",
+                // Keep element mounted to avoid mount flicker; hide visually when collapsed on desktop
+                isCollapsed && !isMobile ? "opacity-0" : "bg-foreground text-background"
+              )}
+            >
               <Bot className="h-4 w-4" />
             </div>
-            <span className="text-sm font-semibold">Data Bot</span>
+            {!isCollapsed && <span className="text-sm font-semibold">Data Bot</span>}
           </div>
           
-          <div className="flex items-center gap-1">
+          <div className={cn(
+            "flex items-center gap-1",
+            // Center the toggle button when collapsed on desktop
+            isCollapsed && !isMobile ? "absolute left-1/2 transform -translate-x-1/2" : ""
+          )}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -254,13 +286,17 @@ export function Sidebar({
                   onClick={onToggleCollapse}
                   className="hidden md:flex h-8 w-8"
                 >
-                  <PanelLeftClose className="h-4 w-4" />
-                  <span className="sr-only">Collapse sidebar</span>
+                  {isCollapsed ? (
+                    <PanelLeftOpen className="h-4 w-4" />
+                  ) : (
+                    <PanelLeftClose className="h-4 w-4" />
+                  )}
+                  <span className="sr-only">Toggle sidebar</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 <div className="flex items-center gap-2">
-                  <span>Collapse Sidebar</span>
+                  <span>{isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}</span>
                   <Kbd>{getKeyboardShortcut('B')}</Kbd>
                 </div>
               </TooltipContent>
@@ -288,33 +324,97 @@ export function Sidebar({
           </div>
         </div>
 
-        {/* Search */}
-        <div className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={`Search... (${keyboardShortcut})`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </div>
+        {/* Body */}
+        {!isMobile && isCollapsed ? (
+          <>
+            <div className="flex flex-col items-center gap-4 p-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleNewChat}
+                className="h-8 w-8"
+                title="New Chat"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="sr-only">New Chat</span>
+              </Button>
 
-        {/* New Chat Button */}
-        <div className="px-4">
-          <Button
-            onClick={handleNewChat}
-            className="w-full"
-            size="sm"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Start New Chat
-          </Button>
-        </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setIsSearchOpen(true)}
+                  >
+                    <Search className="h-4 w-4" />
+                    <span className="sr-only">Search</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <div className="flex items-center gap-2">
+                    <span>Search</span>
+                    <Kbd>{getKeyboardShortcut('K')}</Kbd>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-4">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                  >
+                    <Folder className="h-4 w-4" />
+                    <span className="sr-only">Folders</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <div className="flex items-center gap-2">
+                    <span>Folders</span>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
+            <div className="mt-auto p-4">
+              <ThemeToggle />
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Search */}
+            <div className="p-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder={`Search... (${keyboardShortcut})`}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setIsSearchOpen(true)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+
+            {/* New Chat Button */}
+            <div className="px-4">
+              <Button
+                onClick={handleNewChat}
+                className="w-full"
+                size="sm"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Start New Chat
+              </Button>
+            </div>
+
+            {/* Navigation */}
+            <nav className={cn(
+              "flex-1 overflow-y-auto py-2 space-y-4",
+              isCollapsed ? "px-2" : "px-4"
+            )}>
           {/* Pinned Chats */}
           <SidebarSection
             title="PINNED CHATS"
@@ -332,6 +432,9 @@ export function Sidebar({
                   key={chat.id}
                   chat={chat}
                   onClick={handleChatClick}
+                  onTogglePin={togglePin}
+                  onDelete={handleDeleteChat}
+                  onMoveToFolder={handleMoveChatToFolder}
                 />
               ))
             )}
@@ -357,6 +460,9 @@ export function Sidebar({
                     key={chat.id}
                     chat={chat}
                     onClick={handleChatClick}
+                    onTogglePin={togglePin}
+                    onDelete={handleDeleteChat}
+                    onMoveToFolder={handleMoveChatToFolder}
                   />
                 ))
             )}
@@ -373,66 +479,84 @@ export function Sidebar({
               variant="ghost"
               size="sm"
               className="w-full justify-start mb-2"
+              onClick={() => setCreateFolderOpen(true)}
             >
               <Plus className="mr-2 h-4 w-4" />
               Create folder
             </Button>
             
-            {folders.map((folder) => (
-              <div
-                key={folder.id}
-                className="flex items-center justify-between rounded-lg p-2 text-sm hover:bg-accent cursor-pointer transition-all duration-200 hover:scale-[1.02]"
-              >
-                <span className="truncate">{folder.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {folder.count}
-                </span>
+            {folders.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-muted-foreground/25 p-3 text-center text-xs text-muted-foreground">
+                <Folder className="h-4 w-4 mx-auto mb-1" />
+                No folders yet. Create one to organize your chats.
               </div>
-            ))}
+            ) : (
+              folders.map((folder) => (
+                <FolderRow
+                  key={folder.id}
+                  folder={folder}
+                  folders={folders}
+                  chats={chats}
+                  isExpanded={expandedFolders.has(folder.id)}
+                  onToggle={() => toggleFolderExpansion(folder.id)}
+                  onEdit={handleEditFolder}
+                  onDelete={handleDeleteFolder}
+                  onChatClick={handleChatClick}
+                  onMoveChatToFolder={handleMoveChatToFolder}
+                  onTogglePin={togglePin}
+                  onDeleteChat={handleDeleteChat}
+                  isCollapsed={isCollapsed}
+                />
+              ))
+            )}
           </SidebarSection>
 
-          {/* Templates */}
-          <SidebarSection
-            title="TEMPLATES"
-            icon={<FileText className="h-4 w-4" />}
-            collapsed={collapsedSections.templates}
-            onToggle={() => toggleSection("templates")}
-          >
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start mb-2"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create template
-            </Button>
-            
-            {templates.map((template) => (
-              <div
-                key={template.id}
-                className="rounded-lg p-2 text-sm hover:bg-accent cursor-pointer transition-all duration-200 hover:scale-[1.02]"
-              >
-                <div className="font-medium truncate">{template.name}</div>
-                <div className="text-xs text-muted-foreground truncate">
-                  {template.preview}
+            </nav>
+
+            {/* Footer */}
+            <div className="border-t p-4">
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <UserMenu
+                    onLogout={handleLogout}
+                  />
                 </div>
+                <ThemeToggle />
               </div>
-            ))}
-          </SidebarSection>
-        </nav>
-
-        {/* Footer */}
-        <div className="border-t p-4">
-          <div className="flex items-center gap-2">
-            <div className="flex-1">
-              <UserMenu
-                onLogout={handleLogout}
-              />
             </div>
-            <ThemeToggle />
-          </div>
-        </div>
+          </>
+        )}
       </motion.aside>
+      <SearchModal
+        open={isSearchOpen}
+        onOpenChange={setIsSearchOpen}
+        conversations={chats}
+        onSelectConversation={handleChatClick}
+        onCreateNewChat={handleNewChat}
+      />
+      
+      <DeleteChatDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        chatTitle={chatToDelete ? chats.find(c => c.id === chatToDelete)?.title || "this chat" : ""}
+        onConfirm={confirmDeleteChat}
+      />
+      
+      <CreateFolderModal
+        open={createFolderOpen}
+        onOpenChange={setCreateFolderOpen}
+        onCreateFolder={editingFolder ? handleUpdateFolder : handleCreateFolder}
+        isEditing={!!editingFolder}
+        initialData={editingFolder}
+      />
+      
+      <DeleteFolderDialog
+        open={deleteFolderOpen}
+        onOpenChange={setDeleteFolderOpen}
+        folderName={folderToDelete?.name || ""}
+        chatCount={folderToDelete?.chatIds?.length || 0}
+        onConfirm={confirmDeleteFolder}
+      />
     </>
   )
 }
