@@ -11,7 +11,6 @@ import {
   Star, 
   Clock, 
   Folder, 
-  FileText,
   X
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -22,7 +21,6 @@ import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Kbd } from "@/components/ui/kbd"
 import { cn, getKeyboardShortcut } from "@/lib/utils"
-import { templates } from "@/data"
 import { useChat } from "@/components/providers/chat-provider"
 import { ChatListItem } from "@/components/ai-elements/chat-list-item"
 import { FolderRow } from "@/components/layout/folder-row"
@@ -54,7 +52,6 @@ export function Sidebar({
     pinned: false,
     recent: false,
     folders: false,
-    templates: false,
   })
   const [isMobile, setIsMobile] = React.useState(false)
   const [isInitialized, setIsInitialized] = React.useState(false)
@@ -514,42 +511,6 @@ export function Sidebar({
             )}
           </SidebarSection>
 
-          {/* Templates */}
-          <SidebarSection
-            title="TEMPLATES"
-            icon={<FileText className="h-4 w-4" />}
-            collapsed={collapsedSections.templates}
-            onToggle={() => toggleSection("templates")}
-          >
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start mb-2"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create template
-            </Button>
-            
-            {templates.map((template) => (
-              <div
-                key={template.id}
-                className={cn(
-                  "rounded-lg p-2 text-sm hover:bg-accent cursor-pointer transition-all duration-200 hover:scale-[1.02]",
-                  isCollapsed && "flex items-center justify-center"
-                )}
-                title={template.name}
-              >
-                {!isCollapsed && (
-                  <>
-                    <div className="font-medium truncate">{template.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {template.preview}
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
-            </SidebarSection>
             </nav>
 
             {/* Footer */}

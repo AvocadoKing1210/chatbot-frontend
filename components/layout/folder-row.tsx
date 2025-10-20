@@ -60,7 +60,6 @@ export function FolderRow({
   isCollapsed = false,
   className
 }: FolderRowProps) {
-  const [isHovered, setIsHovered] = React.useState(false)
   
   // Get chats that belong to this folder
   const folderChats = chats.filter(chat => folder.chatIds.includes(chat.id))
@@ -94,8 +93,6 @@ export function FolderRow({
           <motion.div
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.99 }}
-            onHoverStart={() => setIsHovered(true)}
-            onHoverEnd={() => setIsHovered(false)}
             onClick={onToggle}
             className={cn(
               "flex items-center justify-between rounded-lg p-2 text-sm hover:bg-accent cursor-pointer transition-all duration-200 group relative",
@@ -136,37 +133,6 @@ export function FolderRow({
               )}
             </div>
 
-            {/* Actions button - only show on hover */}
-            <AnimatePresence>
-              {isHovered && !isCollapsed && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  className="flex items-center gap-1"
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onEdit(folder)
-                        }}
-                      >
-                        <Edit className="h-3 w-3" />
-                        <span className="sr-only">Edit folder</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>Edit folder</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </motion.div>
         </ContextMenuTrigger>
 

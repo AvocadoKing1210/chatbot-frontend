@@ -11,7 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Folder, Trash2 } from "lucide-react"
+import { Trash2 } from "lucide-react"
 
 interface DeleteFolderDialogProps {
   open: boolean
@@ -41,13 +41,12 @@ export function DeleteFolderDialog({
             <Trash2 className="h-5 w-5 text-destructive" />
             Delete Folder
           </AlertDialogTitle>
-          <AlertDialogDescription className="space-y-2">
-            <p>
+          <div className="space-y-3">
+            <AlertDialogDescription>
               Are you sure you want to delete the folder <strong>"{folderName}"</strong>?
-            </p>
+            </AlertDialogDescription>
             {chatCount > 0 && (
-              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                <Folder className="h-4 w-4 text-muted-foreground" />
+              <div className="p-3 bg-muted rounded-lg">
                 <span className="text-sm text-muted-foreground">
                   This folder contains {chatCount} chat{chatCount !== 1 ? 's' : ''}. 
                   The chats will be moved out of this folder but won't be deleted.
@@ -57,13 +56,13 @@ export function DeleteFolderDialog({
             <p className="text-sm text-muted-foreground">
               This action cannot be undone.
             </p>
-          </AlertDialogDescription>
+          </div>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className="bg-destructive text-white hover:bg-destructive/90"
           >
             Delete Folder
           </AlertDialogAction>
