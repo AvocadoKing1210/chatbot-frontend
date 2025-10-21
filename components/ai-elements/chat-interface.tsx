@@ -344,7 +344,7 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
         )}
         
         <div className={cn(
-          isMobile ? "w-full" : "max-w-[90%]",
+          isMobile ? (isUser ? "max-w-[85%]" : "w-full") : "max-w-[90%]",
           isUser ? "ml-auto" : ""
         )}>
           <div className={cn(
