@@ -14,6 +14,7 @@ import { Folder, Plus, ChevronDown, ChevronRight } from "lucide-react"
 import { CreateFolderModal } from "./create-folder-modal"
 import { DeleteFolderDialog } from "@/components/ui/delete-folder-dialog"
 import { FolderRow } from "./folder-row"
+import { AnimatedChatList } from "@/components/ai-elements/animated-chat-list"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { cn } from "@/lib/utils"
 import { useChat } from "@/components/providers/chat-provider"
@@ -40,13 +41,15 @@ export function FolderManagementModal({
     chats, 
     folders, 
     isLoading,
+    animatingChats,
     setCurrentChat, 
     togglePin, 
     deleteChat, 
     createFolder,
     updateFolder,
     deleteFolder,
-    moveChatToFolder
+    moveChatToFolder,
+    onAnimationComplete
   } = useChat()
 
   const toggleSection = (section: keyof typeof collapsedSections) => {
@@ -195,6 +198,8 @@ export function FolderManagementModal({
                         onTogglePin={togglePin}
                         onDeleteChat={handleDeleteChat}
                         isCollapsed={false}
+                        animatingChats={animatingChats}
+                        onAnimationComplete={onAnimationComplete}
                       />
                     ))
                   )}
