@@ -26,6 +26,7 @@ import { useChat } from "@/components/providers/chat-provider"
 import { ChatListItem } from "@/components/ai-elements/chat-list-item"
 import { FolderRow } from "@/components/layout/folder-row"
 import { CreateFolderModal } from "@/components/layout/create-folder-modal"
+import { FolderManagementModal } from "@/components/layout/folder-management-modal"
 import { Bot } from "lucide-react"
 import SearchModal from "@/components/layout/search-modal"
 import { DeleteChatDialog } from "@/components/ui/confirmation-dialog"
@@ -66,6 +67,7 @@ export function Sidebar({
   const [createFolderOpen, setCreateFolderOpen] = React.useState(false)
   const [editingFolder, setEditingFolder] = React.useState<any>(null)
   const [expandedFolders, setExpandedFolders] = React.useState<Set<string>>(new Set())
+  const [folderManagementOpen, setFolderManagementOpen] = React.useState(false)
   const { 
     chats, 
     folders, 
@@ -392,6 +394,7 @@ export function Sidebar({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
+                    onClick={() => setFolderManagementOpen(true)}
                   >
                     <Folder className="h-4 w-4" />
                     <span className="sr-only">Folders</span>
@@ -598,6 +601,11 @@ export function Sidebar({
         folderName={folderToDelete?.name || ""}
         chatCount={folderToDelete?.chatIds?.length || 0}
         onConfirm={confirmDeleteFolder}
+      />
+      
+      <FolderManagementModal
+        open={folderManagementOpen}
+        onOpenChange={setFolderManagementOpen}
       />
     </>
   )
