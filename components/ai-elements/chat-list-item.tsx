@@ -17,8 +17,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Database, Code, BarChart3, Star, Trash2, Folder as FolderIcon, ChevronDown } from "lucide-react"
 import { ChatItem } from "@/data/chats"
+import { FolderItem } from "@/data/folders"
 import { cn } from "@/lib/utils"
-import { folders } from "@/data"
 import { useIsMobile } from "@/hooks/use-mobile"
 
 interface ChatListItemProps {
@@ -29,9 +29,10 @@ interface ChatListItemProps {
   onMoveToFolder?: (chatId: string, folderId?: string) => void
   isActive?: boolean
   className?: string
+  folders?: FolderItem[]
 }
 
-export function ChatListItem({ chat, onClick, onTogglePin, onDelete, onMoveToFolder, isActive, className }: ChatListItemProps) {
+export function ChatListItem({ chat, onClick, onTogglePin, onDelete, onMoveToFolder, isActive, className, folders = [] }: ChatListItemProps) {
   // Refs and state for single-line tag fitting
   const tagsContainerRef = React.useRef<HTMLDivElement | null>(null)
   const moreBadgeMeasureRef = React.useRef<HTMLDivElement | null>(null)
@@ -349,7 +350,16 @@ export function ChatListItem({ chat, onClick, onTogglePin, onDelete, onMoveToFol
             <ContextMenuSubTrigger>
               <FolderIcon className="mr-2 h-4 w-4" /> Move to folder
             </ContextMenuSubTrigger>
-            <ContextMenuSubContent className="w-56">
+            <ContextMenuSubContent 
+              className="w-56 min-w-[200px]"
+              style={{
+                zIndex: 9999,
+                position: 'absolute',
+                left: '100%',
+                top: 0,
+                marginLeft: '4px'
+              }}
+            >
               {folders.map((f) => {
                 const isCurrentFolder = chat.folderId === f.id
                 return (
@@ -360,6 +370,10 @@ export function ChatListItem({ chat, onClick, onTogglePin, onDelete, onMoveToFol
                       e.preventDefault()
                       if (!isCurrentFolder) {
                         onMoveToFolder && onMoveToFolder(chat.id, f.id)
+                        // Force close context menu after a short delay
+                        setTimeout(() => {
+                          document.body.click()
+                        }, 100)
                       }
                     }}
                     className={isCurrentFolder ? "opacity-50 cursor-not-allowed" : ""}
@@ -383,6 +397,10 @@ export function ChatListItem({ chat, onClick, onTogglePin, onDelete, onMoveToFol
                     onSelect={(e: Event) => {
                       e.preventDefault()
                       onMoveToFolder && onMoveToFolder(chat.id, undefined)
+                      // Force close context menu after a short delay
+                      setTimeout(() => {
+                        document.body.click()
+                      }, 100)
                     }}
                   >
                     Remove from folder
@@ -417,6 +435,10 @@ export function ChatListItem({ chat, onClick, onTogglePin, onDelete, onMoveToFol
                       onSelect={() => {
                         if (!isCurrentFolder) {
                           onMoveToFolder && onMoveToFolder(chat.id, f.id)
+                          // Force close context menu after a short delay
+                          setTimeout(() => {
+                            document.body.click()
+                          }, 100)
                         }
                       }}
                       className={cn("pl-8", isCurrentFolder ? "opacity-50 cursor-not-allowed" : "")}
@@ -439,6 +461,10 @@ export function ChatListItem({ chat, onClick, onTogglePin, onDelete, onMoveToFol
                     <ContextMenuItem
                       onSelect={() => {
                         onMoveToFolder && onMoveToFolder(chat.id, undefined)
+                        // Force close context menu after a short delay
+                        setTimeout(() => {
+                          document.body.click()
+                        }, 100)
                       }}
                       className="pl-8"
                     >

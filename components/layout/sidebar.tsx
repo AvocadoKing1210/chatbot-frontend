@@ -23,9 +23,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Kbd } from "@/components/ui/kbd"
 import { cn, getKeyboardShortcut } from "@/lib/utils"
 import { useChat } from "@/components/providers/chat-provider"
-import { ChatListItem } from "@/components/ai-elements/chat-list-item"
+import { AnimatedChatList } from "@/components/ai-elements/animated-chat-list"
 import { FolderRow } from "@/components/layout/folder-row"
 import { CreateFolderModal } from "@/components/layout/create-folder-modal"
+import { FolderManagementModal } from "@/components/layout/folder-management-modal"
 import { Bot } from "lucide-react"
 import SearchModal from "@/components/layout/search-modal"
 import { DeleteChatDialog } from "@/components/ui/confirmation-dialog"
@@ -66,10 +67,12 @@ export function Sidebar({
   const [createFolderOpen, setCreateFolderOpen] = React.useState(false)
   const [editingFolder, setEditingFolder] = React.useState<any>(null)
   const [expandedFolders, setExpandedFolders] = React.useState<Set<string>>(new Set())
+  const [folderManagementOpen, setFolderManagementOpen] = React.useState(false)
   const { 
     chats, 
     folders, 
     isLoading,
+    animatingChats,
     createChat, 
     setCurrentChat, 
     togglePin, 
@@ -78,7 +81,8 @@ export function Sidebar({
     createFolder,
     updateFolder,
     deleteFolder,
-    moveChatToFolder
+    moveChatToFolder,
+    onAnimationComplete
   } = useChat()
   const router = useRouter()
 
@@ -243,6 +247,27 @@ export function Sidebar({
     }
   }
 
+  // Helper function to get chats for a section, including animating chats
+  const getChatsForSection = (pinned: boolean) => {
+    return chats.filter(chat => {
+      const isAnimatingPin = animatingChats.has(`${chat.id}-pin`)
+      const isAnimatingUnpin = animatingChats.has(`${chat.id}-unpin`)
+      
+      // If chat is animating pin operation, show it in pinned section
+      if (isAnimatingPin) {
+        return pinned
+      }
+      
+      // If chat is animating unpin operation, show it in recent section
+      if (isAnimatingUnpin) {
+        return !pinned
+      }
+      
+      // Normal filtering based on pinned status
+      return pinned ? chat.pinned : !chat.pinned
+    })
+  }
+
   const handleSettings = () => {
     // In a real app, this would open settings
     console.log("Opening settings...")
@@ -392,6 +417,7 @@ export function Sidebar({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
+                    onClick={() => setFolderManagementOpen(true)}
                   >
                     <Folder className="h-4 w-4" />
                     <span className="sr-only">Folders</span>
@@ -454,21 +480,21 @@ export function Sidebar({
                 <LoadingSpinner size="sm" />
                 <span className="ml-2 text-xs text-muted-foreground">Loading pinned chats...</span>
               </div>
-            ) : chats.filter(chat => chat.pinned).length === 0 ? (
+            ) : getChatsForSection(true).length === 0 ? (
               <div className="rounded-lg border border-dashed border-muted-foreground/25 p-3 text-center text-xs text-muted-foreground">
                 Pin important chats for quick access.
               </div>
             ) : (
-              chats.filter(chat => chat.pinned).map((chat) => (
-                <ChatListItem
-                  key={chat.id}
-                  chat={chat}
-                  onClick={handleChatClick}
-                  onTogglePin={togglePin}
-                  onDelete={handleDeleteChat}
-                  onMoveToFolder={handleMoveChatToFolder}
-                />
-              ))
+              <AnimatedChatList
+                chats={getChatsForSection(true)}
+                onChatClick={handleChatClick}
+                onTogglePin={togglePin}
+                onDelete={handleDeleteChat}
+                onMoveToFolder={handleMoveChatToFolder}
+                animatingChats={animatingChats}
+                onAnimationComplete={onAnimationComplete}
+                folders={folders}
+              />
             )}
           </SidebarSection>
 
@@ -484,24 +510,23 @@ export function Sidebar({
                 <LoadingSpinner size="sm" />
                 <span className="ml-2 text-xs text-muted-foreground">Loading recent chats...</span>
               </div>
-            ) : chats.filter(chat => !chat.pinned).length === 0 ? (
+            ) : getChatsForSection(false).length === 0 ? (
               <div className="rounded-lg border border-dashed border-muted-foreground/25 p-3 text-center text-xs text-muted-foreground">
                 No conversations yet. Start a new one!
               </div>
             ) : (
-              chats
-                .filter(chat => !chat.pinned)
-                .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-                .map((chat) => (
-                  <ChatListItem
-                    key={chat.id}
-                    chat={chat}
-                    onClick={handleChatClick}
-                    onTogglePin={togglePin}
-                    onDelete={handleDeleteChat}
-                    onMoveToFolder={handleMoveChatToFolder}
-                  />
-                ))
+              <AnimatedChatList
+                chats={getChatsForSection(false)
+                  .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+                }
+                onChatClick={handleChatClick}
+                onTogglePin={togglePin}
+                onDelete={handleDeleteChat}
+                onMoveToFolder={handleMoveChatToFolder}
+                animatingChats={animatingChats}
+                onAnimationComplete={onAnimationComplete}
+                folders={folders}
+              />
             )}
           </SidebarSection>
 
@@ -548,6 +573,8 @@ export function Sidebar({
                   onTogglePin={togglePin}
                   onDeleteChat={handleDeleteChat}
                   isCollapsed={isCollapsed}
+                  animatingChats={animatingChats}
+                  onAnimationComplete={onAnimationComplete}
                 />
               ))
             )}
@@ -598,6 +625,11 @@ export function Sidebar({
         folderName={folderToDelete?.name || ""}
         chatCount={folderToDelete?.chatIds?.length || 0}
         onConfirm={confirmDeleteFolder}
+      />
+      
+      <FolderManagementModal
+        open={folderManagementOpen}
+        onOpenChange={setFolderManagementOpen}
       />
     </>
   )

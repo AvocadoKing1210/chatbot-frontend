@@ -50,18 +50,26 @@ interface ChatContextType {
   // Loading states
   isLoading: boolean
   
+  // Animation states
+  animatingChats: Set<string>
+  setAnimatingChats: React.Dispatch<React.SetStateAction<Set<string>>>
+  
   // Chat operations
   createChat: (data: CreateChatData) => Promise<ChatItem>
   addMessage: (chatId: string, content: string, role: 'user' | 'assistant') => Promise<string>
   updateChat: (chatId: string, updates: Partial<ChatItem>) => Promise<void>
   deleteChat: (chatId: string) => Promise<void>
-  togglePin: (chatId: string) => Promise<void>
+  togglePin: (chatId: string) => void
   
   // Folder operations
   createFolder: (data: CreateFolderData) => Promise<FolderItem>
   updateFolder: (folderId: string, updates: Partial<FolderItem>) => Promise<void>
   deleteFolder: (folderId: string) => Promise<void>
   moveChatToFolder: (chatId: string, folderId?: string) => Promise<void>
+  
+  // Animation operations
+  animateChatOperation: (chatId: string, operation: 'pin' | 'unpin' | 'move' | 'delete' | 'add') => void
+  onAnimationComplete: (chatId: string, animationType: string) => void
   
   // AI response simulation
   generateAIResponse: (userMessage: string) => string
@@ -87,6 +95,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const [chats, setChats] = React.useState<ChatItem[]>([])
   const [folders, setFolders] = React.useState<FolderItem[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
+  const [animatingChats, setAnimatingChats] = React.useState<Set<string>>(new Set())
   
   // Load data when user is authenticated
   React.useEffect(() => {
@@ -873,12 +882,31 @@ pipeline.save_model('model.pkl')
     return responses[randomIndex]
   }, [])
 
+  // Animation functions
+  const animateChatOperation = React.useCallback((chatId: string, operation: 'pin' | 'unpin' | 'move' | 'delete' | 'add') => {
+    const animationKey = `${chatId}-${operation}`
+    setAnimatingChats(prev => new Set([...prev, animationKey]))
+  }, [])
+
+  const onAnimationComplete = React.useCallback((chatId: string, animationType: string) => {
+    const animationKey = `${chatId}-${animationType}`
+    // Immediate cleanup for pin/unpin operations to eliminate blank time
+    setAnimatingChats(prev => {
+      const newSet = new Set(prev)
+      newSet.delete(animationKey)
+      return newSet
+    })
+  }, [])
+
   const createChatHandler = React.useCallback(async (data: CreateChatData): Promise<ChatItem> => {
     if (!user?.id) throw new Error('User not authenticated')
     
     try {
       const newChat = await createChat(user.id, data)
       setChats(prev => [newChat, ...prev])
+      
+      // Animate the new chat
+      animateChatOperation(newChat.id, 'add')
       
       // Only set as current chat if it has an initial message
       if (data.initialMessage) {
@@ -957,54 +985,82 @@ pipeline.save_model('model.pkl')
 
   const deleteChatHandler = React.useCallback(async (chatId: string) => {
     try {
-      // Delete from database
-      await deleteChat(chatId)
+      // Start delete animation
+      animateChatOperation(chatId, 'delete')
       
-      // Update local state
-      setChats(prev => prev.filter(chat => chat.id !== chatId))
-      if (currentChat?.id === chatId) {
-        setCurrentChat(null)
-      }
+      // Wait for animation to complete before actually deleting
+      setTimeout(async () => {
+        try {
+          // Delete from database
+          await deleteChat(chatId)
+          
+          // Update local state
+          setChats(prev => prev.filter(chat => chat.id !== chatId))
+          if (currentChat?.id === chatId) {
+            setCurrentChat(null)
+          }
+        } catch (error) {
+          console.error('Error deleting chat:', error)
+        }
+      }, 200) // Reduced to match new animation duration
     } catch (error) {
       console.error('Error deleting chat:', error)
       throw error
     }
-  }, [currentChat])
+  }, [currentChat, animateChatOperation])
 
-  const togglePin = React.useCallback(async (chatId: string) => {
-    try {
-      const chat = chats.find(c => c.id === chatId)
-      if (!chat) return
-      
-      // Update in database
-      await updateChat(chatId, { pinned: !chat.pinned })
-      
-      // Update local state
+  const togglePin = React.useCallback((chatId: string) => {
+    const chat = chats.find(c => c.id === chatId)
+    if (!chat) return
+    
+    // Start pin animation immediately
+    animateChatOperation(chatId, chat.pinned ? 'unpin' : 'pin')
+    
+    // Update local state immediately for instant UI feedback
+    setChats(prev => {
+      const updatedChats = prev.map(chat => {
+        if (chat.id === chatId) {
+          const updatedChat = { 
+            ...chat, 
+            pinned: !chat.pinned,
+            updatedAt: new Date().toISOString()
+          }
+          
+          // Update currentChat if it's the one being pinned/unpinned
+          if (currentChat?.id === chatId) {
+            setCurrentChat(updatedChat)
+          }
+          
+          return updatedChat
+        }
+        return chat
+      })
+      return updatedChats
+    })
+    
+    // Update database in background (don't wait for it)
+    updateChat(chatId, { pinned: !chat.pinned }).catch(error => {
+      console.error('Error updating pin in database:', error)
+      // Revert the local state if database update fails
       setChats(prev => {
-        const updatedChats = prev.map(chat => {
+        const revertedChats = prev.map(chat => {
           if (chat.id === chatId) {
-            const updatedChat = { 
+            return { 
               ...chat, 
-              pinned: !chat.pinned,
+              pinned: chat.pinned, // Revert to original state
               updatedAt: new Date().toISOString()
             }
-            
-            // Update currentChat if it's the one being pinned/unpinned
-            if (currentChat?.id === chatId) {
-              setCurrentChat(updatedChat)
-            }
-            
-            return updatedChat
           }
           return chat
         })
-        return updatedChats
+        return revertedChats
       })
-    } catch (error) {
-      console.error('Error toggling pin:', error)
-      throw error
-    }
-  }, [currentChat, chats])
+      // Also revert currentChat if it was updated
+      if (currentChat?.id === chatId) {
+        setCurrentChat(prev => prev ? { ...prev, pinned: chat.pinned } : null)
+      }
+    })
+  }, [currentChat, chats, animateChatOperation])
 
   // Folder operations
   const createFolderHandler = React.useCallback(async (data: CreateFolderData): Promise<FolderItem> => {
@@ -1074,6 +1130,9 @@ pipeline.save_model('model.pkl')
 
   const moveChatToFolderHandler = React.useCallback(async (chatId: string, folderId?: string) => {
     try {
+      // Start move animation
+      animateChatOperation(chatId, 'move')
+      
       // Update in database
       await moveChatToFolder(chatId, folderId || null)
       
@@ -1105,7 +1164,7 @@ pipeline.save_model('model.pkl')
       console.error('Error moving chat to folder:', error)
       throw error
     }
-  }, [])
+  }, [animateChatOperation])
 
   const value: ChatContextType = {
     currentChat,
@@ -1115,6 +1174,8 @@ pipeline.save_model('model.pkl')
     folders,
     setFolders,
     isLoading,
+    animatingChats,
+    setAnimatingChats,
     createChat: createChatHandler,
     addMessage,
     updateChat: updateChatHandler,
@@ -1124,6 +1185,8 @@ pipeline.save_model('model.pkl')
     updateFolder: updateFolderHandler,
     deleteFolder: deleteFolderHandler,
     moveChatToFolder: moveChatToFolderHandler,
+    animateChatOperation,
+    onAnimationComplete,
     generateAIResponse
   }
 

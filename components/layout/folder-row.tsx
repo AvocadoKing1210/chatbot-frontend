@@ -28,6 +28,7 @@ import {
 } from "lucide-react"
 import { FolderItem, ChatItem } from "@/data"
 import { cn } from "@/lib/utils"
+import { AnimatedChatList } from "@/components/ai-elements/animated-chat-list"
 
 interface FolderRowProps {
   folder: FolderItem
@@ -43,6 +44,9 @@ interface FolderRowProps {
   onDeleteChat?: (chatId: string) => void
   isCollapsed?: boolean
   className?: string
+  // Animation props
+  animatingChats?: Set<string>
+  onAnimationComplete?: (chatId: string, animationType: string) => void
 }
 
 export function FolderRow({
@@ -58,7 +62,9 @@ export function FolderRow({
   onTogglePin,
   onDeleteChat,
   isCollapsed = false,
-  className
+  className,
+  animatingChats = new Set(),
+  onAnimationComplete
 }: FolderRowProps) {
   
   // Get chats that belong to this folder
@@ -168,112 +174,17 @@ export function FolderRow({
                 No chats in this folder yet.
               </div>
             ) : (
-              folderChats
-                .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-                .map((chat) => (
-                  <ContextMenu key={chat.id}>
-                    <ContextMenuTrigger asChild>
-                      <motion.div
-                        whileHover={{ scale: 1.01 }}
-                        whileTap={{ scale: 0.99 }}
-                        onClick={() => onChatClick(chat.id)}
-                        className="flex items-center justify-between rounded-lg p-2 text-sm hover:bg-accent cursor-pointer transition-all duration-200 group"
-                      >
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate">{chat.title}</div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {chat.preview}
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    </ContextMenuTrigger>
-
-                    <ContextMenuContent className="w-56">
-                      {onTogglePin && (
-                        <ContextMenuItem
-                          onSelect={(e: Event) => {
-                            e.preventDefault()
-                            onTogglePin(chat.id)
-                          }}
-                        >
-                          {chat.pinned ? (
-                            <>
-                              <Star className="mr-2 h-4 w-4 fill-current" /> Unpin
-                            </>
-                          ) : (
-                            <>
-                              <Star className="mr-2 h-4 w-4" /> Pin
-                            </>
-                          )}
-                        </ContextMenuItem>
-                      )}
-
-                      <ContextMenuSub>
-                        <ContextMenuSubTrigger>
-                          <Folder className="mr-2 h-4 w-4" /> Move to folder
-                        </ContextMenuSubTrigger>
-                        <ContextMenuSubContent className="w-56">
-                          {onMoveChatToFolder && (
-                            <>
-                              {folders.map((f) => {
-                                const isCurrentFolder = chat.folderId === f.id
-                                return (
-                                  <ContextMenuItem
-                                    key={f.id}
-                                    disabled={isCurrentFolder}
-                                    onSelect={(e: Event) => {
-                                      e.preventDefault()
-                                      if (!isCurrentFolder) {
-                                        onMoveChatToFolder(chat.id, f.id)
-                                      }
-                                    }}
-                                    className={isCurrentFolder ? "opacity-50 cursor-not-allowed" : ""}
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      {isCurrentFolder && (
-                                        <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />
-                                      )}
-                                      <span>{f.name}</span>
-                                      {isCurrentFolder && (
-                                        <span className="text-xs text-muted-foreground ml-auto">(current)</span>
-                                      )}
-                                    </div>
-                                  </ContextMenuItem>
-                                )
-                              })}
-                              <ContextMenuSeparator />
-                              <ContextMenuItem
-                                onSelect={(e: Event) => {
-                                  e.preventDefault()
-                                  onMoveChatToFolder(chat.id, undefined)
-                                }}
-                              >
-                                Remove from folder
-                              </ContextMenuItem>
-                            </>
-                          )}
-                        </ContextMenuSubContent>
-                      </ContextMenuSub>
-
-                      {onDeleteChat && (
-                        <>
-                          <ContextMenuSeparator />
-                          <ContextMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onSelect={(e: Event) => {
-                              e.preventDefault()
-                              onDeleteChat(chat.id)
-                            }}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete
-                          </ContextMenuItem>
-                        </>
-                      )}
-                    </ContextMenuContent>
-                  </ContextMenu>
-                ))
+              <AnimatedChatList
+                chats={folderChats.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())}
+                onChatClick={onChatClick}
+                onTogglePin={onTogglePin}
+                onDelete={onDeleteChat}
+                onMoveToFolder={onMoveChatToFolder}
+                animatingChats={animatingChats}
+                onAnimationComplete={onAnimationComplete}
+                folders={folders}
+                className="space-y-1"
+              />
             )}
           </motion.div>
         )}
