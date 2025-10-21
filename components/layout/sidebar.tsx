@@ -144,6 +144,11 @@ export function Sidebar({
   const handleNewChat = () => {
     // Navigate to home page to start a new conversation
     router.push('/')
+    
+    // Close sidebar on mobile when starting new chat
+    if (isMobile) {
+      onClose()
+    }
   }
 
   const handleChatClick = (chatId: string) => {
@@ -151,6 +156,11 @@ export function Sidebar({
     if (chat && chat.messages.length > 0) {
       setCurrentChat(chat)
       router.push(`/chat/${chatId}`)
+      
+      // Close sidebar on mobile when chat is selected
+      if (isMobile) {
+        onClose()
+      }
     }
   }
 
