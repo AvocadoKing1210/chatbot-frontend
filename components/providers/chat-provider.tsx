@@ -59,7 +59,7 @@ interface ChatContextType {
   addMessage: (chatId: string, content: string, role: 'user' | 'assistant') => Promise<string>
   updateChat: (chatId: string, updates: Partial<ChatItem>) => Promise<void>
   deleteChat: (chatId: string) => Promise<void>
-  togglePin: (chatId: string) => Promise<void>
+  togglePin: (chatId: string) => void
   
   // Folder operations
   createFolder: (data: CreateFolderData) => Promise<FolderItem>
@@ -1009,62 +1009,57 @@ pipeline.save_model('model.pkl')
     }
   }, [currentChat, animateChatOperation])
 
-  const togglePin = React.useCallback(async (chatId: string) => {
-    try {
-      const chat = chats.find(c => c.id === chatId)
-      if (!chat) return
-      
-      // Start pin animation immediately
-      animateChatOperation(chatId, chat.pinned ? 'unpin' : 'pin')
-      
-      // Update local state immediately for instant UI feedback
+  const togglePin = React.useCallback((chatId: string) => {
+    const chat = chats.find(c => c.id === chatId)
+    if (!chat) return
+    
+    // Start pin animation immediately
+    animateChatOperation(chatId, chat.pinned ? 'unpin' : 'pin')
+    
+    // Update local state immediately for instant UI feedback
+    setChats(prev => {
+      const updatedChats = prev.map(chat => {
+        if (chat.id === chatId) {
+          const updatedChat = { 
+            ...chat, 
+            pinned: !chat.pinned,
+            updatedAt: new Date().toISOString()
+          }
+          
+          // Update currentChat if it's the one being pinned/unpinned
+          if (currentChat?.id === chatId) {
+            setCurrentChat(updatedChat)
+          }
+          
+          return updatedChat
+        }
+        return chat
+      })
+      return updatedChats
+    })
+    
+    // Update database in background (don't wait for it)
+    updateChat(chatId, { pinned: !chat.pinned }).catch(error => {
+      console.error('Error updating pin in database:', error)
+      // Revert the local state if database update fails
       setChats(prev => {
-        const updatedChats = prev.map(chat => {
+        const revertedChats = prev.map(chat => {
           if (chat.id === chatId) {
-            const updatedChat = { 
+            return { 
               ...chat, 
-              pinned: !chat.pinned,
+              pinned: chat.pinned, // Revert to original state
               updatedAt: new Date().toISOString()
             }
-            
-            // Update currentChat if it's the one being pinned/unpinned
-            if (currentChat?.id === chatId) {
-              setCurrentChat(updatedChat)
-            }
-            
-            return updatedChat
           }
           return chat
         })
-        return updatedChats
+        return revertedChats
       })
-      
-      // Update database in background (don't wait for it)
-      updateChat(chatId, { pinned: !chat.pinned }).catch(error => {
-        console.error('Error updating pin in database:', error)
-        // Revert the local state if database update fails
-        setChats(prev => {
-          const revertedChats = prev.map(chat => {
-            if (chat.id === chatId) {
-              return { 
-                ...chat, 
-                pinned: chat.pinned, // Revert to original state
-                updatedAt: new Date().toISOString()
-              }
-            }
-            return chat
-          })
-          return revertedChats
-        })
-        // Also revert currentChat if it was updated
-        if (currentChat?.id === chatId) {
-          setCurrentChat(prev => prev ? { ...prev, pinned: chat.pinned } : null)
-        }
-      })
-    } catch (error) {
-      console.error('Error toggling pin:', error)
-      throw error
-    }
+      // Also revert currentChat if it was updated
+      if (currentChat?.id === chatId) {
+        setCurrentChat(prev => prev ? { ...prev, pinned: chat.pinned } : null)
+      }
+    })
   }, [currentChat, chats, animateChatOperation])
 
   // Folder operations
