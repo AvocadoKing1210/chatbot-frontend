@@ -4,6 +4,7 @@ import * as React from "react"
 import { motion, AnimatePresence, Reorder } from "framer-motion"
 import { ChatListItem } from "./chat-list-item"
 import { ChatItem } from "@/data/chats"
+import { FolderItem } from "@/data/folders"
 import { cn } from "@/lib/utils"
 
 interface AnimatedChatListProps {
@@ -15,6 +16,7 @@ interface AnimatedChatListProps {
   activeChatId?: string
   className?: string
   isCollapsed?: boolean
+  folders?: FolderItem[]
   // Animation states
   animatingChats?: Set<string>
   onAnimationComplete?: (chatId: string, animationType: string) => void
@@ -29,6 +31,7 @@ export function AnimatedChatList({
   activeChatId,
   className,
   isCollapsed = false,
+  folders = [],
   animatingChats = new Set(),
   onAnimationComplete
 }: AnimatedChatListProps) {
@@ -74,10 +77,10 @@ export function AnimatedChatList({
     },
     // Move animation
     moving: {
-      scale: 0.98,
-      opacity: 0.8,
+      scale: 0.99,
+      opacity: 0.9,
       transition: {
-        duration: 0.2
+        duration: 0.15
       }
     },
     // Delete animation
@@ -128,7 +131,7 @@ export function AnimatedChatList({
           return (
             <motion.div
               key={chat.id}
-              layout
+              layout={!isAnimating}
               variants={itemVariants}
               initial="initial"
               animate={animationVariant}
@@ -136,7 +139,7 @@ export function AnimatedChatList({
               onAnimationComplete={(definition) => {
                 if (typeof definition === 'object' && definition !== null) {
                   // Check if this is the final animation state
-                  if (animationVariant === "deleting" || animationVariant === "pinning") {
+                  if (animationVariant === "deleting" || animationVariant === "pinning" || animationVariant === "moving") {
                     // Determine the specific operation for cleanup
                     if (animatingChats.has(`${chat.id}-pin`)) {
                       handleAnimationComplete(chat.id, "pin")
@@ -144,6 +147,8 @@ export function AnimatedChatList({
                       handleAnimationComplete(chat.id, "unpin")
                     } else if (animatingChats.has(`${chat.id}-delete`)) {
                       handleAnimationComplete(chat.id, "delete")
+                    } else if (animatingChats.has(`${chat.id}-move`)) {
+                      handleAnimationComplete(chat.id, "move")
                     }
                   }
                 }
@@ -163,7 +168,9 @@ export function AnimatedChatList({
                 ...(isAnimating && (animatingChats.has(`${chat.id}-pin`) || animatingChats.has(`${chat.id}-unpin`)) && {
                   position: 'relative',
                   zIndex: 10
-                })
+                }),
+                // Ensure proper spacing and prevent layout issues
+                marginBottom: isAnimating ? '0' : '4px'
               }}
             >
               <ChatListItem
@@ -173,6 +180,7 @@ export function AnimatedChatList({
                 onDelete={onDelete}
                 onMoveToFolder={onMoveToFolder}
                 isActive={activeChatId === chat.id}
+                folders={folders}
               />
             </motion.div>
           )

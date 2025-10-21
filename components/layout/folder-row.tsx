@@ -182,6 +182,7 @@ export function FolderRow({
                 onMoveToFolder={onMoveChatToFolder}
                 animatingChats={animatingChats}
                 onAnimationComplete={onAnimationComplete}
+                folders={folders}
                 className="space-y-1"
               />
             )}

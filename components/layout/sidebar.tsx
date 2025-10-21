@@ -493,6 +493,7 @@ export function Sidebar({
                 onMoveToFolder={handleMoveChatToFolder}
                 animatingChats={animatingChats}
                 onAnimationComplete={onAnimationComplete}
+                folders={folders}
               />
             )}
           </SidebarSection>
@@ -524,6 +525,7 @@ export function Sidebar({
                 onMoveToFolder={handleMoveChatToFolder}
                 animatingChats={animatingChats}
                 onAnimationComplete={onAnimationComplete}
+                folders={folders}
               />
             )}
           </SidebarSection>
