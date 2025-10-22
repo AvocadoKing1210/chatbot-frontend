@@ -7,6 +7,7 @@ import { Tool, ToolContent, ToolInput, ToolOutput } from "./tool"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { DataTable, type DataTableColumn } from "./data-table"
 import { ChartCreationModal, type ChartConfig } from "./chart-creation-modal"
+import { MuiChart } from "./mui-chart"
 import { cn } from "@/lib/utils"
 import { Play, Repeat, BarChart3, Download, CheckCircleIcon, CircleIcon, ClockIcon, XCircleIcon, ChevronDownIcon } from "lucide-react"
 import { mockQueryExecutionResponse } from "@/data"
@@ -33,7 +34,15 @@ type StoredExecution = {
   createdAt: string
 }
 
+type StoredChart = {
+  id: string
+  codeHash: string
+  config: ChartConfig
+  createdAt: string
+}
+
 const HISTORY_KEY = "exec_history_v1"
+const CHARTS_KEY = "exec_charts_v1"
 
 const getStatusBadge = (status: ExecutionState) => {
   const labels = {
@@ -86,6 +95,54 @@ function saveHistory(entries: StoredExecution[]) {
   } catch {}
 }
 
+function loadCharts(): StoredChart[] {
+  if (typeof window === "undefined") return []
+  try {
+    const raw = localStorage.getItem(CHARTS_KEY)
+    if (!raw) return []
+    const arr = JSON.parse(raw)
+    return Array.isArray(arr) ? arr : []
+  } catch {
+    return []
+  }
+}
+
+function saveCharts(entries: StoredChart[]) {
+  if (typeof window === "undefined") return
+  try {
+    localStorage.setItem(CHARTS_KEY, JSON.stringify(entries.slice(-50))) // Keep more charts than executions
+  } catch {}
+}
+
+function clearChartsForCodeHash(codeHash: string) {
+  if (typeof window === "undefined") return
+  try {
+    const charts = loadCharts()
+    const filteredCharts = charts.filter(chart => chart.codeHash !== codeHash)
+    saveCharts(filteredCharts)
+  } catch {}
+}
+
+// Utility function for debugging - can be called from browser console
+function getStoredChartsInfo() {
+  if (typeof window === "undefined") return { total: 0, byCodeHash: {} }
+  try {
+    const charts = loadCharts()
+    const byCodeHash = charts.reduce((acc, chart) => {
+      acc[chart.codeHash] = (acc[chart.codeHash] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+    return { total: charts.length, byCodeHash }
+  } catch {
+    return { total: 0, byCodeHash: {} }
+  }
+}
+
+// Make it available globally for debugging
+if (typeof window !== "undefined") {
+  (window as any).getStoredChartsInfo = getStoredChartsInfo
+}
+
 export const ExecutionTool = React.memo(function ExecutionTool({ className, mode, code, shouldExecute = false, onSuccess, onComplete, ...props }: ExecutionToolProps) {
   const [execState, setExecState] = React.useState<ExecutionState>("idle")
   const [execError, setExecError] = React.useState<string | undefined>()
@@ -107,6 +164,9 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
     }
   })
   
+  // Store created charts
+  const [createdCharts, setCreatedCharts] = React.useState<Array<{ id: string; config: ChartConfig }>>([])
+  
   // Save modal state to localStorage whenever it changes
   React.useEffect(() => {
     if (typeof window === "undefined") return
@@ -120,6 +180,9 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
   
   // Track if this is the initial page load (not a component re-render)
   const isInitialLoadRef = React.useRef(true)
+  
+  // Track if charts have been loaded for current codeHash to prevent multiple loads
+  const chartsLoadedRef = React.useRef<string | null>(null)
   
 
   const handleDownloadCSV = React.useCallback(() => {
@@ -155,9 +218,33 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
   }, [columns, rows])
 
   const handleChartCreate = React.useCallback((config: ChartConfig) => {
-    // For now, just log the chart config
-    // In the future, this could create and display a chart
+    // Create a new chart with a unique ID
+    const chartId = `chart_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const newChart = { id: chartId, config }
+    
+    setCreatedCharts(prev => [...prev, newChart])
+    
+    // Save to localStorage
+    const storedChart: StoredChart = {
+      id: chartId,
+      codeHash,
+      config,
+      createdAt: new Date().toISOString(),
+    }
+    const charts = loadCharts()
+    saveCharts([...charts, storedChart])
+    
     console.log('Chart created with config:', config)
+    console.log('Total charts stored:', charts.length + 1)
+  }, [codeHash])
+
+  const handleChartDelete = React.useCallback((chartId: string) => {
+    setCreatedCharts(prev => prev.filter(chart => chart.id !== chartId))
+    
+    // Remove from localStorage
+    const charts = loadCharts()
+    const updatedCharts = charts.filter(chart => chart.id !== chartId)
+    saveCharts(updatedCharts)
   }, [])
 
   const handleExecute = async () => {
@@ -249,6 +336,31 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
   // Reset execution flag when code changes
   React.useEffect(() => {
     hasExecutedRef.current = false
+  }, [codeHash])
+
+  // Clear charts when code changes (they will be reloaded from localStorage if they exist)
+  React.useEffect(() => {
+    setCreatedCharts([])
+    chartsLoadedRef.current = null // Reset the loaded flag when code changes
+  }, [codeHash])
+
+  // Load charts from localStorage whenever codeHash changes or component mounts
+  React.useEffect(() => {
+    // Only load charts if we haven't already loaded them for this codeHash
+    if (chartsLoadedRef.current === codeHash) {
+      return
+    }
+    
+    const charts = loadCharts()
+    const chartsForThisCode = charts.filter(chart => chart.codeHash === codeHash)
+    if (chartsForThisCode.length > 0) {
+      const chartConfigs = chartsForThisCode.map(chart => ({ id: chart.id, config: chart.config }))
+      setCreatedCharts(chartConfigs)
+      console.log(`Loaded ${chartsForThisCode.length} charts for codeHash: ${codeHash}`)
+    }
+    
+    // Mark charts as loaded for this codeHash
+    chartsLoadedRef.current = codeHash
   }, [codeHash])
 
   // Execute query when shouldExecute changes from false to true (user clicked execute button)
@@ -348,6 +460,21 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
           />
         </CollapsibleContent>
       </Collapsible>
+      
+      {/* Display Created Charts */}
+      {createdCharts.length > 0 && (
+        <div className="mt-4 space-y-4">
+          {createdCharts.map((chart) => (
+            <MuiChart
+              key={chart.id}
+              config={chart.config}
+              columns={columns}
+              rows={rows}
+              onDelete={() => handleChartDelete(chart.id)}
+            />
+          ))}
+        </div>
+      )}
       
       {/* Chart Creation Modal */}
       <ChartCreationModal

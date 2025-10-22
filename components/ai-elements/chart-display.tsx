@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { ChartConfig } from "./chart-creation-modal"
 import { DataTableColumn } from "./data-table"
+import { MuiChart } from "./mui-chart"
 
 export type ChartDisplayProps = {
   config: ChartConfig
@@ -181,21 +182,14 @@ export function ChartDisplay({ config, columns, rows, onEdit, onDelete }: ChartD
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Chart placeholder - in a real implementation, this would be the actual chart */}
-            <div className="rounded-lg border-2 border-dashed border-muted-foreground/25 p-8 text-center">
-              <IconComponent className="mx-auto h-12 w-12 text-muted-foreground/50" />
-              <p className="mt-2 text-sm text-muted-foreground">
-                Interactive {config.type} chart would be displayed here
-              </p>
-              <p className="text-xs text-muted-foreground/75">
-                Data: {rows.length} rows, {columns.length} columns
-              </p>
-              <div className="mt-4 text-xs text-muted-foreground/50">
-                <p>X-Axis: {config.xAxis}</p>
-                {config.yAxis && <p>Y-Axis: {config.yAxis}</p>}
-                {config.colorBy && <p>Color By: {config.colorBy}</p>}
-              </div>
-            </div>
+            {/* Use MUI Chart component for interactive charts */}
+            <MuiChart 
+              config={config} 
+              columns={columns} 
+              rows={rows}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
           </div>
         )}
       </CardContent>

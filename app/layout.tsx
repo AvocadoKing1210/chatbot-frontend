@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ui/theme-provider";
+import { MuiThemeProviderWrapper } from "@/components/providers/mui-theme-provider";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { ChatProvider } from "@/components/providers/chat-provider";
 import { SidebarProvider } from "@/components/providers/sidebar-provider";
@@ -61,12 +62,14 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>
-            <ConditionalLayout>
-              {children}
-            </ConditionalLayout>
-          </AuthProvider>
-          <Toaster />
+          <MuiThemeProviderWrapper>
+            <AuthProvider>
+              <ConditionalLayout>
+                {children}
+              </ConditionalLayout>
+            </AuthProvider>
+            <Toaster />
+          </MuiThemeProviderWrapper>
         </ThemeProvider>
       </body>
     </html>
