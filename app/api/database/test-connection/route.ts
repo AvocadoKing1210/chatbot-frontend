@@ -83,7 +83,7 @@ async function getTableSchemaWithClient(client: any): Promise<TableInfo[]> {
     const countQuery = `SELECT COUNT(*) as count FROM "${tableName}"`
     const countResult = await client.query(countQuery)
     
-    const columns: ColumnInfo[] = columnsResult.rows.map(row => ({
+    const columns: ColumnInfo[] = columnsResult.rows.map((row: any) => ({
       name: row.column_name,
       type: row.character_maximum_length 
         ? `${row.data_type}(${row.character_maximum_length})`
@@ -122,13 +122,17 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
     
-    // Create connection pool
+    // Create connection pool with optimized settings for cold starts
     const pool = new Pool({
       connectionString,
-      // Set reasonable timeouts - increased for Supabase
-      connectionTimeoutMillis: 30000, // 30 seconds for Supabase
-      idleTimeoutMillis: 30000,
+      // Optimized timeouts for cold starts
+      connectionTimeoutMillis: 45000, // 45 seconds - balance between timeout and Next.js limits
+      idleTimeoutMillis: 10000, // Shorter idle timeout for faster cleanup
       max: 1, // Only need one connection for testing
+      // Additional optimizations
+      allowExitOnIdle: true, // Allow pool to exit when idle
+      keepAlive: true, // Keep connections alive
+      keepAliveInitialDelayMillis: 0, // Start keep-alive immediately
     })
     
     let result: ConnectionTestResult

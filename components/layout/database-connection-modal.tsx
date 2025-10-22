@@ -186,6 +186,13 @@ export function DatabaseConnectionModal({
     setTestResult(null)
     setShowPreview(false)
 
+    // Show initial toast for cold start awareness
+    toast({
+      title: "Testing Connection",
+      description: "Connecting to database... This may take longer on the first attempt.",
+      action: <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+    })
+
     try {
       const result = await DatabaseConnectionService.testConnection(formData.connectionString)
       console.log('Connection test result:', result)

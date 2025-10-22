@@ -30,10 +30,14 @@ export interface SavedConnection {
 export class DatabaseConnectionService {
   private static supabase = createClient()
 
-  // Test database connection via API
+  // Test database connection via API with retry logic for cold starts
   static async testConnection(connectionString: string): Promise<ConnectionTestResult> {
+    console.log('Starting database connection test...')
+    
+    // First, try a fast connection test to warm up the serverless function
     try {
-      const response = await fetch('/api/database/test-connection', {
+      console.log('Attempting fast connection test...')
+      const fastResponse = await fetch('/api/database/test-connection-fast', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -41,22 +45,98 @@ export class DatabaseConnectionService {
         body: JSON.stringify({ connectionString }),
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        return {
-          success: false,
-          message: errorData.message || 'Connection test failed'
+      if (fastResponse.ok) {
+        const fastResult = await fastResponse.json()
+        if (fastResult.success) {
+          console.log('Fast connection test successful, proceeding with full test...')
         }
       }
-
-      const result = await response.json()
-      return result
     } catch (error) {
-      console.error('Connection test error:', error)
-      return {
-        success: false,
-        message: 'Network error. Please check your connection and try again.'
+      console.log('Fast connection test failed, proceeding with full test...', error)
+    }
+
+    // Now do the full connection test with retry logic
+    const maxRetries = 3
+    let lastError: Error | null = null
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Full connection test attempt ${attempt}/${maxRetries}`)
+        
+        // Add timeout to fetch request to prevent hanging
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 50000) // 50 second timeout
+        
+        const response = await fetch('/api/database/test-connection', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ connectionString }),
+          signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          const error = new Error(errorData.message || 'Connection test failed')
+          
+          // More comprehensive retry conditions
+          const shouldRetry = attempt < maxRetries && (
+            errorData.message?.includes('timeout') || 
+            errorData.message?.includes('Connection failed') ||
+            errorData.message?.includes('Connection timeout') ||
+            errorData.message?.includes('ETIMEDOUT') ||
+            errorData.message?.includes('ECONNREFUSED') ||
+            response.status === 500 ||
+            response.status === 504 || // Gateway timeout
+            response.status === 408    // Request timeout
+          )
+          
+          if (shouldRetry) {
+            const delay = attempt * 2000 // Exponential backoff: 2s, 4s, 6s
+            console.log(`Attempt ${attempt} failed (${response.status}), retrying in ${delay/1000} seconds...`)
+            await new Promise(resolve => setTimeout(resolve, delay))
+            lastError = error
+            continue
+          }
+          
+          return {
+            success: false,
+            message: errorData.message || 'Connection test failed',
+            detailedError: errorData.detailedError
+          }
+        }
+
+        const result = await response.json()
+        console.log(`Full connection test successful on attempt ${attempt}`)
+        return result
+      } catch (error) {
+        console.error(`Full connection test error on attempt ${attempt}:`, error)
+        lastError = error as Error
+        
+        // Check if it's an abort error (timeout) or network error
+        const isTimeoutOrNetworkError = error instanceof Error && (
+          error.name === 'AbortError' ||
+          error.message.includes('fetch') ||
+          error.message.includes('network') ||
+          error.message.includes('timeout')
+        )
+        
+        if (attempt < maxRetries && isTimeoutOrNetworkError) {
+          const delay = attempt * 2000 // Exponential backoff
+          console.log(`Attempt ${attempt} failed (network/timeout), retrying in ${delay/1000} seconds...`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+          continue
+        }
       }
+    }
+
+    // All attempts failed
+    return {
+      success: false,
+      message: lastError?.message || 'Network error. Please check your connection and try again.'
     }
   }
 
