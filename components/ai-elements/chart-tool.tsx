@@ -10,15 +10,19 @@ import { mockChartGenerationResponse } from "@/data"
 type ChartState = "idle" | "running" | "success" | "error"
 
 export type ChartToolProps = React.HTMLAttributes<HTMLDivElement> & {
-  autoRun?: boolean
+  loadFromHistory?: boolean
 }
 
-export function ChartTool({ autoRun = false, ...props }: ChartToolProps) {
+export function ChartTool({ loadFromHistory = false, ...props }: ChartToolProps) {
   const [state, setState] = React.useState<ChartState>("idle")
   const [error, setError] = React.useState<string | undefined>()
   const [embedUrl, setEmbedUrl] = React.useState<string | undefined>()
+  
+  // Track if we've already attempted execution to prevent re-runs
+  const hasExecutedRef = React.useRef(false)
 
   const run = async () => {
+    console.log(`[ChartTool] Starting chart generation`)
     setState("running")
     setError(undefined)
     try {
@@ -27,16 +31,22 @@ export function ChartTool({ autoRun = false, ...props }: ChartToolProps) {
       if (res.status !== "ok" || !res.embed_url) throw new Error(res.errorText || "Chart failed")
       setEmbedUrl(res.embed_url)
       setState("success")
+      console.log(`[ChartTool] Chart generation completed successfully`)
     } catch (e) {
       setError((e as Error).message)
       setState("error")
+      console.error(`[ChartTool] Chart generation failed:`, (e as Error).message)
     }
   }
 
   React.useEffect(() => {
-    if (autoRun && state === "idle") void run()
+    if (loadFromHistory && state === "idle" && !hasExecutedRef.current) {
+      console.log(`[ChartTool] User triggered chart generation`)
+      hasExecutedRef.current = true
+      void run()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRun])
+  }, [loadFromHistory])
 
   const toolState =
     state === "idle"

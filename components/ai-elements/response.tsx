@@ -209,7 +209,7 @@ export const Response = memo(
                       <ExecutionTool 
                         mode={mode as 'sql' | 'python'} 
                         code={codeContent} 
-                        autoRun={true}
+                        shouldExecute={true}
                         onSuccess={() => {
                           setIsExecuting(false)
                           if (chartEnabled) {
@@ -218,7 +218,7 @@ export const Response = memo(
                         }}
                         onComplete={() => setIsExecuting(false)}
                       />
-                      {showChart && <ChartTool autoRun={true} />}
+                      {showChart && <ChartTool loadFromHistory={true} />}
                     </>
                   )}
                 </div>
@@ -322,7 +322,7 @@ export const Response = memo(
                       <ExecutionTool 
                         mode={mode as 'sql' | 'python'} 
                         code={codeContent} 
-                        autoRun={true}
+                        shouldExecute={true}
                         onSuccess={() => {
                           setIsExecuting(false)
                           if (chartEnabled) {
@@ -331,7 +331,7 @@ export const Response = memo(
                         }}
                         onComplete={() => setIsExecuting(false)}
                       />
-                      {showChart && <ChartTool autoRun={true} />}
+                      {showChart && <ChartTool loadFromHistory={true} />}
                     </>
                   )}
                 </div>

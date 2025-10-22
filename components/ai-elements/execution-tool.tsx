@@ -2,10 +2,13 @@
 
 import * as React from "react"
 import { Button } from "@/components/ui/button"
-import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "./tool"
+import { Badge } from "@/components/ui/badge"
+import { Tool, ToolContent, ToolInput, ToolOutput } from "./tool"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { DataTable, type DataTableColumn } from "./data-table"
+import { ChartCreationModal, type ChartConfig } from "./chart-creation-modal"
 import { cn } from "@/lib/utils"
-import { Play, Repeat } from "lucide-react"
+import { Play, Repeat, BarChart3, Download, CheckCircleIcon, CircleIcon, ClockIcon, XCircleIcon, ChevronDownIcon } from "lucide-react"
 import { mockQueryExecutionResponse } from "@/data"
 //
 
@@ -14,7 +17,7 @@ type ExecutionState = "idle" | "running" | "success" | "error"
 export type ExecutionToolProps = React.HTMLAttributes<HTMLDivElement> & {
   mode: "sql" | "python"
   code: string
-  autoRun?: boolean
+  shouldExecute?: boolean
   onSuccess?: (queryId?: number) => void
   onComplete?: () => void
 }
@@ -31,6 +34,29 @@ type StoredExecution = {
 }
 
 const HISTORY_KEY = "exec_history_v1"
+
+const getStatusBadge = (status: ExecutionState) => {
+  const labels = {
+    "idle": "Pending",
+    "running": "Running", 
+    "success": "Completed",
+    "error": "Error",
+  } as const;
+
+  const icons = {
+    "idle": <CircleIcon className="size-4" />,
+    "running": <ClockIcon className="size-4 animate-pulse" />,
+    "success": <CheckCircleIcon className="size-4 text-green-600" />,
+    "error": <XCircleIcon className="size-4 text-red-600" />,
+  } as const;
+
+  return (
+    <Badge className="gap-1.5 rounded-full text-xs" variant="secondary">
+      {icons[status]}
+      {labels[status]}
+    </Badge>
+  );
+};
 
 function hashCode(input: string): string {
   let hash = 2166136261
@@ -60,15 +86,79 @@ function saveHistory(entries: StoredExecution[]) {
   } catch {}
 }
 
-export function ExecutionTool({ className, mode, code, autoRun = false, onSuccess, onComplete, ...props }: ExecutionToolProps) {
+export const ExecutionTool = React.memo(function ExecutionTool({ className, mode, code, shouldExecute = false, onSuccess, onComplete, ...props }: ExecutionToolProps) {
   const [execState, setExecState] = React.useState<ExecutionState>("idle")
   const [execError, setExecError] = React.useState<string | undefined>()
   const [columns, setColumns] = React.useState<DataTableColumn[]>([])
   const [rows, setRows] = React.useState<Array<Record<string, unknown>>>([])
   const [meta, setMeta] = React.useState<{ full: boolean; effectiveLimit: number; wasClamped: boolean } | undefined>()
   const [queryId, setQueryId] = React.useState<number | undefined>()
-  const [userOpened, setUserOpened] = React.useState<boolean>(autoRun)
+  const [userOpened, setUserOpened] = React.useState<boolean>(shouldExecute)
   const codeHash = React.useMemo(() => hashCode(`${mode}:${code}`), [mode, code])
+  
+  // Persist modal state to survive component unmounting/remounting
+  const [chartModalOpen, setChartModalOpen] = React.useState(() => {
+    if (typeof window === "undefined") return false
+    try {
+      const key = `chartModalOpen_${codeHash}`
+      return localStorage.getItem(key) === 'true'
+    } catch {
+      return false
+    }
+  })
+  
+  // Save modal state to localStorage whenever it changes
+  React.useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      const key = `chartModalOpen_${codeHash}`
+      localStorage.setItem(key, String(chartModalOpen))
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [chartModalOpen, codeHash])
+  
+  // Track if this is the initial page load (not a component re-render)
+  const isInitialLoadRef = React.useRef(true)
+  
+
+  const handleDownloadCSV = React.useCallback(() => {
+    if (columns.length === 0 || rows.length === 0) return
+
+    // Create CSV content
+    const headers = columns.map(col => col.name).join(',')
+    const csvRows = rows.map(row => 
+      columns.map(col => {
+        const value = row[col.name]
+        // Handle values that might contain commas or quotes
+        if (value == null) return ''
+        const stringValue = String(value)
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+          return `"${stringValue.replace(/"/g, '""')}"`
+        }
+        return stringValue
+      }).join(',')
+    )
+    
+    const csvContent = [headers, ...csvRows].join('\n')
+    
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `query_results_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }, [columns, rows])
+
+  const handleChartCreate = React.useCallback((config: ChartConfig) => {
+    // For now, just log the chart config
+    // In the future, this could create and display a chart
+    console.log('Chart created with config:', config)
+  }, [])
 
   const handleExecute = async () => {
     setUserOpened(true)
@@ -152,18 +242,40 @@ export function ExecutionTool({ className, mode, code, autoRun = false, onSucces
     }
   }
 
+  // Track if we've already attempted execution to prevent re-runs
+  const hasExecutedRef = React.useRef(false)
+  const previousShouldExecuteRef = React.useRef(shouldExecute)
+
+  // Reset execution flag when code changes
   React.useEffect(() => {
-    if (autoRun && execState === "idle") {
+    hasExecutedRef.current = false
+  }, [codeHash])
+
+  // Execute query when shouldExecute changes from false to true (user clicked execute button)
+  React.useEffect(() => {
+    const shouldExecuteNow = shouldExecute && !previousShouldExecuteRef.current
+    previousShouldExecuteRef.current = shouldExecute
+    
+    if (shouldExecuteNow && execState === "idle" && !hasExecutedRef.current) {
+      hasExecutedRef.current = true
       void handleExecute()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRun])
+  }, [shouldExecute])
 
-  // Load from history (folded by default)
+  // Load from history ONLY on initial page load, not on component re-renders
   React.useEffect(() => {
-    if (execState !== "idle") return
+    if (!isInitialLoadRef.current) {
+      return
+    }
+    
+    if (execState !== "idle") {
+      return
+    }
+    
     const history = loadHistory()
     const entry = history.find((h) => h.codeHash === codeHash && h.mode === mode)
+    
     if (entry) {
       setColumns(entry.columns)
       setRows(entry.rows)
@@ -172,6 +284,9 @@ export function ExecutionTool({ className, mode, code, autoRun = false, onSucces
       setExecState("success")
       // keep folded: userOpened remains false
     }
+    
+    // Mark that initial load is complete
+    isInitialLoadRef.current = false
   }, [codeHash, mode, execState])
 
   const toolState =
@@ -185,10 +300,42 @@ export function ExecutionTool({ className, mode, code, autoRun = false, onSucces
 
   return (
     <div className={cn("not-prose", className)} {...props}>
-      <Tool defaultOpen={userOpened}>
-        <ToolHeader title="Execution" type="tool-database_query" state={toolState} icon={Play} />
-        <ToolContent>
-
+      <Collapsible defaultOpen={userOpened} className="not-prose mb-4 w-full rounded-md border">
+        <div className="group flex w-full items-center justify-between gap-4 p-3">
+          <CollapsibleTrigger className="flex items-center gap-2 flex-1">
+            <Play className="size-4 text-muted-foreground" />
+            <span className="font-medium text-sm">Execution</span>
+            {getStatusBadge(execState)}
+          </CollapsibleTrigger>
+          <div className="flex items-center gap-1">
+            {/* Action buttons - only show when execution is successful */}
+            {execState === "success" && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setChartModalOpen(true)}
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDownloadCSV}
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+            <CollapsibleTrigger className="p-1">
+              <ChevronDownIcon className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+          </div>
+        </div>
+        
+        <CollapsibleContent className="overflow-hidden transition-all duration-300 ease-in-out data-[state=closed]:max-h-0 data-[state=open]:max-h-[2000px] text-popover-foreground outline-none">
           <ToolOutput
             output={
               execState === "success" ? (
@@ -199,10 +346,19 @@ export function ExecutionTool({ className, mode, code, autoRun = false, onSucces
             }
             errorText={execError}
           />
-        </ToolContent>
-      </Tool>
+        </CollapsibleContent>
+      </Collapsible>
+      
+      {/* Chart Creation Modal */}
+      <ChartCreationModal
+        open={chartModalOpen}
+        onOpenChange={setChartModalOpen}
+        columns={columns}
+        rows={rows}
+        onChartCreate={handleChartCreate}
+      />
     </div>
   )
-}
+})
 
 

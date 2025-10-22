@@ -121,7 +121,7 @@ export function ChartCreationModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[900px] md:max-w-[1000px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <IconComponent className="h-5 w-5" />
@@ -129,7 +129,9 @@ export function ChartCreationModal({
           </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
+        <div className="flex flex-col md:flex-row gap-6 py-4">
+          {/* Left side - Form */}
+          <div className="flex-1 space-y-4">
           {/* Chart Type Selection */}
           <div className="space-y-2">
             <Label htmlFor="chart-type">Chart Type</Label>
@@ -155,12 +157,13 @@ export function ChartCreationModal({
 
           {/* Chart Title */}
           <div className="space-y-2">
-            <Label htmlFor="chart-title">Chart Title</Label>
+            <Label htmlFor="chart-title" className="block">Chart Title</Label>
             <Input
               id="chart-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Enter chart title"
+              className="max-w-xs block"
             />
           </div>
 
@@ -229,15 +232,55 @@ export function ChartCreationModal({
             </div>
           )}
 
-          {/* Data Preview */}
-          <div className="space-y-2">
-            <Label>Data Preview</Label>
-            <div className="rounded-md border p-3 text-sm text-muted-foreground">
-              <div>Rows: {rows.length}</div>
-              <div>Columns: {columns.length}</div>
-              {numericColumns.length > 0 && (
-                <div>Numeric columns: {numericColumns.map(col => col.name).join(", ")}</div>
-              )}
+          </div>
+          
+          {/* Right side - Preview (Not mobile) */}
+          <div className="hidden sm:block flex-1">
+            <div className="space-y-2">
+              <Label>Preview</Label>
+              <div className="rounded-md border p-4 text-sm">
+                <div className="space-y-2 text-muted-foreground">
+                  <div>Rows: {rows.length}</div>
+                  <div>Columns: {columns.length}</div>
+                  {numericColumns.length > 0 && (
+                    <div>Numeric columns: {numericColumns.map(col => col.name).join(", ")}</div>
+                  )}
+                </div>
+                
+                {/* Sample data preview */}
+                {rows.length > 0 && (
+                  <div className="mt-4">
+                    <div className="text-xs font-medium text-muted-foreground mb-2">Sample Data</div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b">
+                            {columns.slice(0, 3).map((col) => (
+                              <th key={col.name} className="px-2 py-1 text-left font-medium">
+                                {col.name}
+                              </th>
+                            ))}
+                            {columns.length > 3 && <th className="px-2 py-1 text-left">...</th>}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.slice(0, 3).map((row, index) => (
+                            <tr key={index} className="border-b last:border-0">
+                              {columns.slice(0, 3).map((col) => (
+                                <td key={col.name} className="px-2 py-1">
+                                  {String(row[col.name] || 'NULL').slice(0, 20)}
+                                  {String(row[col.name] || '').length > 20 && '...'}
+                                </td>
+                              ))}
+                              {columns.length > 3 && <td className="px-2 py-1">...</td>}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
