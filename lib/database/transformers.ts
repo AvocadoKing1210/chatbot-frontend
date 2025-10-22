@@ -18,6 +18,7 @@ export interface ChatItem {
   messages: MessageItem[]
   mode: 'sql' | 'python'
   chartEnabled: boolean
+  databaseConnectionId?: string
 }
 
 export interface MessageItem {
@@ -70,6 +71,7 @@ export function transformChatToChatItem(
     messages: chat.messages?.map(transformMessageToMessageItem) || [],
     mode: (chat.mode as 'sql' | 'python') || 'sql',
     chartEnabled: chat.chart_enabled || false,
+    databaseConnectionId: chat.database_connection_id || undefined,
   }
 }
 
@@ -180,6 +182,7 @@ export function createNewChatItem(data: {
   mode: 'sql' | 'python'
   chartEnabled: boolean
   initialMessage?: string
+  databaseConnectionId?: string
 }): ChatItem {
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
@@ -192,6 +195,7 @@ export function createNewChatItem(data: {
     tags: data.tags || [],
     mode: data.mode,
     chartEnabled: data.chartEnabled,
+    databaseConnectionId: data.databaseConnectionId,
     messages: data.initialMessage ? [
       {
         id: crypto.randomUUID(),

@@ -58,9 +58,21 @@ export function DatabaseConnectionModal({
   // Load saved connections when modal opens
   useEffect(() => {
     if (open) {
-      const connections = DatabaseConnectionService.getSavedConnections()
-      setSavedConnections(connections)
-      setViewMode('list')
+      const loadConnections = async () => {
+        try {
+          // First, try to migrate any localStorage connections
+          await DatabaseConnectionService.migrateFromLocalStorage()
+          
+          // Then load connections from Supabase
+          const connections = await DatabaseConnectionService.getSavedConnections()
+          setSavedConnections(connections)
+          setViewMode('list')
+        } catch (error) {
+          console.error('Error loading connections:', error)
+          setSavedConnections([])
+        }
+      }
+      loadConnections()
     }
   }, [open])
 
@@ -99,10 +111,10 @@ export function DatabaseConnectionModal({
     setCollapsedSections(prev => ({ ...prev, preview: true }))
   }
 
-  const handleDeleteConnection = (connectionId: string) => {
+  const handleDeleteConnection = async (connectionId: string) => {
     try {
-      DatabaseConnectionService.deleteConnection(connectionId)
-      const updatedConnections = DatabaseConnectionService.getSavedConnections()
+      await DatabaseConnectionService.deleteConnection(connectionId)
+      const updatedConnections = await DatabaseConnectionService.getSavedConnections()
       setSavedConnections(updatedConnections)
       toast({
         title: "Connection Deleted",
@@ -221,7 +233,7 @@ export function DatabaseConnectionModal({
     }
   }
 
-  const handleSaveConnection = () => {
+  const handleSaveConnection = async () => {
     if (!testResult?.success) {
       toast({
         title: "Test Connection First",
@@ -245,8 +257,8 @@ export function DatabaseConnectionModal({
 
       if (editingConnection) {
         // Update existing connection
-        DatabaseConnectionService.deleteConnection(editingConnection.id)
-        savedConnection = DatabaseConnectionService.saveConnection({
+        await DatabaseConnectionService.deleteConnection(editingConnection.id)
+        savedConnection = await DatabaseConnectionService.saveConnection({
           name: formData.name.trim(),
           connectionString: formData.connectionString,
           isValid: true,
@@ -254,7 +266,7 @@ export function DatabaseConnectionModal({
         })
       } else {
         // Create new connection
-        savedConnection = DatabaseConnectionService.saveConnection({
+        savedConnection = await DatabaseConnectionService.saveConnection({
           name: formData.name.trim(),
           connectionString: formData.connectionString,
           isValid: true,
@@ -263,14 +275,14 @@ export function DatabaseConnectionModal({
       }
 
       // Update connection status with test results
-      DatabaseConnectionService.updateConnectionStatus(
+      await DatabaseConnectionService.updateConnectionStatus(
         savedConnection.id,
         true,
         testResult.tables?.length
       )
 
       // Refresh the connections list
-      const updatedConnections = DatabaseConnectionService.getSavedConnections()
+      const updatedConnections = await DatabaseConnectionService.getSavedConnections()
       setSavedConnections(updatedConnections)
 
       toast({

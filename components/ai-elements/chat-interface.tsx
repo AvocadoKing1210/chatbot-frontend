@@ -17,7 +17,9 @@ import {
   ThumbsDown,
   Share,
   X,
-  Plus
+  Plus,
+  Database,
+  Circle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,11 +50,13 @@ import { useChat } from "@/components/providers/chat-provider"
 import { useMode } from "@/components/providers/mode-provider"
 import { ChatItem, Message } from "@/data/chats"
 import { modeConfig } from "@/data"
-import { Database, CodeXml } from "lucide-react"
+import { CodeXml } from "lucide-react"
 import type { SelectorOption } from "@/components/ai-elements/chat-input"
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { DeleteChatDialog } from "@/components/ui/confirmation-dialog"
+import { DatabaseConnectionService, SavedConnection } from "@/lib/database/connection-service"
+import { DatabaseConnectionModal } from "@/components/layout/database-connection-modal"
 
 interface ChatInterfaceProps {
   chat: ChatItem
@@ -74,6 +78,9 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
   const [messageFeedback, setMessageFeedback] = React.useState<Record<string, 'liked' | 'disliked' | null>>({})
   const [streamingMessages, setStreamingMessages] = React.useState<Set<string>>(new Set())
   const [stoppedMessageIds, setStoppedMessageIds] = React.useState<Set<string>>(new Set())
+  const [savedConnections, setSavedConnections] = React.useState<SavedConnection[]>([])
+  const [currentConnection, setCurrentConnection] = React.useState<SavedConnection | null>(null)
+  const [isDatabaseModalOpen, setIsDatabaseModalOpen] = React.useState(false)
   const messagesEndRef = React.useRef<HTMLDivElement>(null)
   const initialMessageProcessedRef = React.useRef(false)
   const pendingTimeoutsRef = React.useRef<Set<number>>(new Set())
@@ -219,6 +226,19 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
     ))
   }
 
+  const handleDatabaseSwitch = async (connection: SavedConnection | null) => {
+    setCurrentConnection(connection)
+    
+    // Update the chat's database connection in Supabase
+    try {
+      await updateChat(chat.id, { 
+        databaseConnectionId: connection?.id || undefined 
+      })
+    } catch (error) {
+      console.error('Error updating chat database connection:', error)
+    }
+  }
+
   const handleUpdateTitle = () => {
     if (editTitle.trim() && editTitle !== chat.title) {
       updateChat(chat.id, { title: editTitle.trim() })
@@ -321,6 +341,51 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
       clearAllPendingTimeouts()
     }
   }, [clearAllPendingTimeouts])
+
+  // Load saved database connections
+  React.useEffect(() => {
+    const loadConnections = async () => {
+      try {
+        // First, try to migrate any localStorage connections
+        await DatabaseConnectionService.migrateFromLocalStorage()
+        
+        // Then load connections from Supabase
+        const connections = await DatabaseConnectionService.getSavedConnections()
+        setSavedConnections(connections)
+        
+        // Set the current connection based on chat's database connection or first valid connection
+        if (chat.databaseConnectionId) {
+          const chatConnection = connections.find(conn => conn.id === chat.databaseConnectionId)
+          setCurrentConnection(chatConnection || null)
+        } else {
+          // Set the first valid connection as current, or null if none
+          const validConnection = connections.find(conn => conn.isValid)
+          setCurrentConnection(validConnection || null)
+        }
+      } catch (error) {
+        console.error('Error loading database connections:', error)
+        setSavedConnections([])
+        setCurrentConnection(null)
+      }
+    }
+
+    loadConnections()
+  }, [chat.databaseConnectionId])
+
+  // Refresh connections when modal closes (in case new connection was added)
+  React.useEffect(() => {
+    if (!isDatabaseModalOpen) {
+      const refreshConnections = async () => {
+        try {
+          const connections = await DatabaseConnectionService.getSavedConnections()
+          setSavedConnections(connections)
+        } catch (error) {
+          console.error('Error refreshing connections:', error)
+        }
+      }
+      refreshConnections()
+    }
+  }, [isDatabaseModalOpen])
 
   // Separate component for message actions to isolate feedback state
   const MessageActionsWrapper = React.memo(({ messageId, messageContent, timestamp }: { 
@@ -516,31 +581,86 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
           </DropdownMenu>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>Updated {new Date(chat.updatedAt).toLocaleDateString()}</span>
-          <span>•</span>
-          <span>{chat.messages.length} messages</span>
-          <span>•</span>
-          <Badge variant="secondary" className="text-xs">
-            {chat.mode.toUpperCase()}
-          </Badge>
-          {chat.chartEnabled && (
-            <Badge variant="outline" className="text-xs">
-              Charts
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-xs">
+              {chat.mode.toUpperCase()}
             </Badge>
-          )}
-        </div>
-
-        {/* Tags */}
-        {chat.tags && chat.tags.length > 0 && (
-          <div className="flex gap-1 mt-2">
-            {chat.tags.map((tag, index) => (
-              <Badge key={index} variant="outline" className="text-xs">
-                {tag}
+            {chat.chartEnabled && (
+              <Badge variant="outline" className="text-xs">
+                Charts
               </Badge>
-            ))}
+            )}
+            {/* Tags */}
+            {chat.tags && chat.tags.length > 0 && (
+              <>
+                {chat.tags.map((tag, index) => (
+                  <Badge key={index} variant="outline" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+              </>
+            )}
           </div>
-        )}
+          
+          {/* Database Connection */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 px-2 text-xs"
+              >
+                {currentConnection ? currentConnection.name : 'No connection'}
+                <div 
+                  className={cn(
+                    "ml-1 h-1.5 w-1.5 rounded-full",
+                    currentConnection 
+                      ? currentConnection.isValid 
+                        ? "bg-green-500" 
+                        : "bg-red-500"
+                      : "bg-gray-400"
+                  )} 
+                />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {savedConnections.length === 0 ? (
+                <DropdownMenuItem disabled>
+                  <span className="text-xs text-muted-foreground">
+                    No saved connections
+                  </span>
+                </DropdownMenuItem>
+              ) : (
+                <>
+                  {savedConnections.map((connection) => (
+                    <DropdownMenuItem
+                      key={connection.id}
+                      onClick={() => handleDatabaseSwitch(connection)}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-xs">{connection.name}</span>
+                      <div 
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          connection.isValid ? "bg-green-500" : "bg-red-500"
+                        )} 
+                      />
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setIsDatabaseModalOpen(true)}
+                    className="text-xs"
+                  >
+                    <Plus className="mr-2 h-3 w-3" />
+                    Add connection
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Messages Area - Stick-to-bottom */}
@@ -694,6 +814,13 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
         chatTitle={chat.title}
         onConfirm={handleDeleteChat}
       />
+
+      {/* Database Connection Modal */}
+      <DatabaseConnectionModal
+        open={isDatabaseModalOpen}
+        onOpenChange={setIsDatabaseModalOpen}
+      />
+
     </div>
   )
 }

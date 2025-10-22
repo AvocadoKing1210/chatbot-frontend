@@ -1,4 +1,7 @@
 // Database connection service for managing external database connections
+import { createClient } from '@/lib/supabase/client'
+import { encryptConnectionString, decryptConnectionString } from '@/lib/encryption'
+import type { UserDatabaseConnection, UserDatabaseConnectionInsert, UserDatabaseConnectionUpdate } from '@/lib/types/database'
 
 export interface ConnectionTestResult {
   success: boolean
@@ -25,7 +28,7 @@ export interface SavedConnection {
 }
 
 export class DatabaseConnectionService {
-  private static readonly STORAGE_KEY = 'saved_database_connections'
+  private static supabase = createClient()
 
   // Test database connection via API
   static async testConnection(connectionString: string): Promise<ConnectionTestResult> {
@@ -57,65 +60,225 @@ export class DatabaseConnectionService {
     }
   }
 
-  // Save connection to localStorage (in a real app, this would be stored securely on the server)
-  static saveConnection(connection: Omit<SavedConnection, 'id' | 'lastTested'>): SavedConnection {
-    const savedConnections = this.getSavedConnections()
-    
-    const newConnection: SavedConnection = {
-      ...connection,
-      id: crypto.randomUUID(),
-      lastTested: new Date(),
-    }
-
-    savedConnections.push(newConnection)
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(savedConnections))
-    
-    return newConnection
+  // Get current user ID
+  private static async getCurrentUserId(): Promise<string> {
+    const { data: { user } } = await this.supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+    return user.id
   }
 
-  // Get all saved connections
-  static getSavedConnections(): SavedConnection[] {
-    if (typeof window === 'undefined') return []
-    
+  // Save connection to Supabase (encrypted)
+  static async saveConnection(connection: Omit<SavedConnection, 'id' | 'lastTested'>): Promise<SavedConnection> {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY)
-      if (!stored) return []
+      const userId = await this.getCurrentUserId()
+      const connectionId = crypto.randomUUID()
       
-      const connections = JSON.parse(stored)
-      return connections.map((conn: any) => ({
-        ...conn,
-        lastTested: new Date(conn.lastTested)
-      }))
+      // Encrypt the connection string
+      const encryptedConnectionString = await encryptConnectionString(connection.connectionString, userId)
+      
+      const connectionData: UserDatabaseConnectionInsert = {
+        id: connectionId,
+        user_id: userId,
+        name: connection.name,
+        connection_string: encryptedConnectionString,
+        is_valid: connection.isValid,
+        table_count: connection.tableCount || 0,
+        last_tested: new Date().toISOString()
+      }
+
+      const { error } = await this.supabase
+        .from('user_database_connections')
+        .insert(connectionData)
+
+      if (error) throw error
+
+      return {
+        id: connectionId,
+        name: connection.name,
+        connectionString: connection.connectionString,
+        lastTested: new Date(),
+        isValid: connection.isValid,
+        tableCount: connection.tableCount
+      }
+    } catch (error) {
+      console.error('Error saving connection:', error)
+      throw error
+    }
+  }
+
+  // Get all saved connections from Supabase (decrypted)
+  static async getSavedConnections(): Promise<SavedConnection[]> {
+    try {
+      const userId = await this.getCurrentUserId()
+      
+      const { data, error } = await this.supabase
+        .from('user_database_connections')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      // Decrypt connection strings
+      const decryptedConnections = await Promise.all(
+        (data || []).map(async (conn: UserDatabaseConnection) => {
+          try {
+            const decryptedConnectionString = await decryptConnectionString(conn.connection_string, userId)
+            return {
+              id: conn.id,
+              name: conn.name,
+              connectionString: decryptedConnectionString,
+              lastTested: new Date(conn.last_tested || conn.created_at || new Date()),
+              isValid: conn.is_valid || false,
+              tableCount: conn.table_count || 0
+            }
+          } catch (decryptError) {
+            console.error('Failed to decrypt connection:', conn.id, decryptError)
+            // Return connection with placeholder string if decryption fails
+            return {
+              id: conn.id,
+              name: conn.name,
+              connectionString: '[Encrypted - Decryption Failed]',
+              lastTested: new Date(conn.last_tested || conn.created_at || new Date()),
+              isValid: false,
+              tableCount: conn.table_count || 0
+            }
+          }
+        })
+      )
+
+      return decryptedConnections
     } catch (error) {
       console.error('Error loading saved connections:', error)
       return []
     }
   }
 
-  // Delete a saved connection
-  static deleteConnection(connectionId: string): void {
-    if (typeof window === 'undefined') return
-    
-    const savedConnections = this.getSavedConnections()
-    const filtered = savedConnections.filter(conn => conn.id !== connectionId)
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(filtered))
+  // Delete a saved connection from Supabase
+  static async deleteConnection(connectionId: string): Promise<void> {
+    try {
+      const userId = await this.getCurrentUserId()
+      
+      const { error } = await this.supabase
+        .from('user_database_connections')
+        .delete()
+        .eq('id', connectionId)
+        .eq('user_id', userId)
+
+      if (error) throw error
+    } catch (error) {
+      console.error('Error deleting connection:', error)
+      throw error
+    }
   }
 
-  // Update connection validity status
-  static updateConnectionStatus(connectionId: string, isValid: boolean, tableCount?: number): void {
+  // Update connection validity status in Supabase
+  static async updateConnectionStatus(connectionId: string, isValid: boolean, tableCount?: number): Promise<void> {
+    try {
+      const userId = await this.getCurrentUserId()
+      
+      const updateData: UserDatabaseConnectionUpdate = {
+        is_valid: isValid,
+        last_tested: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+
+      if (tableCount !== undefined) {
+        updateData.table_count = tableCount
+      }
+
+      const { error } = await this.supabase
+        .from('user_database_connections')
+        .update(updateData)
+        .eq('id', connectionId)
+        .eq('user_id', userId)
+
+      if (error) throw error
+    } catch (error) {
+      console.error('Error updating connection status:', error)
+      throw error
+    }
+  }
+
+  // Update a saved connection in Supabase
+  static async updateConnection(connectionId: string, updates: Partial<SavedConnection>): Promise<SavedConnection | null> {
+    try {
+      const userId = await this.getCurrentUserId()
+      
+      // Prepare update data
+      const updateData: UserDatabaseConnectionUpdate = {
+        name: updates.name,
+        is_valid: updates.isValid,
+        table_count: updates.tableCount,
+        last_tested: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+
+      // If connection string is being updated, encrypt it
+      if (updates.connectionString) {
+        updateData.connection_string = await encryptConnectionString(updates.connectionString, userId)
+      }
+
+      const { data, error } = await this.supabase
+        .from('user_database_connections')
+        .update(updateData)
+        .eq('id', connectionId)
+        .eq('user_id', userId)
+        .select()
+        .single()
+
+      if (error) throw error
+      if (!data) return null
+
+      // Decrypt the connection string for return
+      const decryptedConnectionString = await decryptConnectionString(data.connection_string, userId)
+
+      return {
+        id: data.id,
+        name: data.name,
+        connectionString: decryptedConnectionString,
+        lastTested: new Date(data.last_tested || data.created_at || new Date()),
+        isValid: data.is_valid || false,
+        tableCount: data.table_count || 0
+      }
+    } catch (error) {
+      console.error('Error updating connection:', error)
+      return null
+    }
+  }
+
+  // Migrate localStorage connections to Supabase (one-time migration)
+  static async migrateFromLocalStorage(): Promise<void> {
     if (typeof window === 'undefined') return
     
-    const savedConnections = this.getSavedConnections()
-    const connection = savedConnections.find(conn => conn.id === connectionId)
-    
-    if (connection) {
-      connection.isValid = isValid
-      connection.lastTested = new Date()
-      if (tableCount !== undefined) {
-        connection.tableCount = tableCount
+    try {
+      const stored = localStorage.getItem('saved_database_connections')
+      if (!stored) return
+
+      const localConnections = JSON.parse(stored)
+      if (!Array.isArray(localConnections) || localConnections.length === 0) return
+
+      console.log(`Migrating ${localConnections.length} connections from localStorage to Supabase...`)
+
+      // Migrate each connection
+      for (const conn of localConnections) {
+        try {
+          await this.saveConnection({
+            name: conn.name,
+            connectionString: conn.connectionString,
+            isValid: conn.isValid || false,
+            tableCount: conn.tableCount || 0
+          })
+        } catch (error) {
+          console.error('Failed to migrate connection:', conn.name, error)
+        }
       }
-      
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(savedConnections))
+
+      // Clear localStorage after successful migration
+      localStorage.removeItem('saved_database_connections')
+      console.log('Migration completed successfully')
+    } catch (error) {
+      console.error('Error during migration:', error)
     }
   }
 

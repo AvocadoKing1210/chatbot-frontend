@@ -90,7 +90,8 @@ export async function createChat(userId: string, data: CreateChatData): Promise<
       preview: getPreviewFromTitle(title),
       mode: data.mode,
       chart_enabled: data.chartEnabled,
-      user_id: userId
+      user_id: userId,
+      database_connection_id: data.databaseConnectionId || null
     })
     
     // Add initial message if provided
@@ -136,6 +137,7 @@ export async function createChat(userId: string, data: CreateChatData): Promise<
       }] : [],
       mode: (chat.mode as 'sql' | 'python') || 'sql',
       chartEnabled: chat.chart_enabled || false,
+      databaseConnectionId: chat.database_connection_id || undefined,
     }
   } catch (error) {
     console.error('Error creating chat:', error)

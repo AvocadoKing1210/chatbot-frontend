@@ -51,6 +51,7 @@ export type Database = {
         Row: {
           chart_enabled: boolean | null
           created_at: string | null
+          database_connection_id: string | null
           folder_id: string | null
           id: string
           mode: string | null
@@ -63,6 +64,7 @@ export type Database = {
         Insert: {
           chart_enabled?: boolean | null
           created_at?: string | null
+          database_connection_id?: string | null
           folder_id?: string | null
           id?: string
           mode?: string | null
@@ -75,6 +77,7 @@ export type Database = {
         Update: {
           chart_enabled?: boolean | null
           created_at?: string | null
+          database_connection_id?: string | null
           folder_id?: string | null
           id?: string
           mode?: string | null
@@ -153,36 +156,6 @@ export type Database = {
           },
         ]
       }
-      profiles: {
-        Row: {
-          avatar_url: string | null
-          created_at: string | null
-          email: string | null
-          id: string
-          name: string | null
-          updated_at: string | null
-          workspace: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string | null
-          email?: string | null
-          id: string
-          name?: string | null
-          updated_at?: string | null
-          workspace?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string | null
-          email?: string | null
-          id?: string
-          name?: string | null
-          updated_at?: string | null
-          workspace?: string | null
-        }
-        Relationships: []
-      }
       tags: {
         Row: {
           created_at: string | null
@@ -200,6 +173,42 @@ export type Database = {
           created_at?: string | null
           id?: string
           name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_database_connections: {
+        Row: {
+          connection_string: string
+          created_at: string | null
+          id: string
+          is_valid: boolean | null
+          last_tested: string | null
+          name: string
+          table_count: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          connection_string: string
+          created_at?: string | null
+          id: string
+          is_valid?: boolean | null
+          last_tested?: string | null
+          name: string
+          table_count?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          connection_string?: string
+          created_at?: string | null
+          id?: string
+          is_valid?: boolean | null
+          last_tested?: string | null
+          name?: string
+          table_count?: number | null
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
@@ -367,3 +376,8 @@ export type TagUpdate = TablesUpdate<'tags'>
 export type ChatTag = Tables<'chat_tags'>
 export type ChatTagInsert = TablesInsert<'chat_tags'>
 export type ChatTagUpdate = TablesUpdate<'chat_tags'>
+
+// New types for database connections
+export type UserDatabaseConnection = Tables<'user_database_connections'>
+export type UserDatabaseConnectionInsert = TablesInsert<'user_database_connections'>
+export type UserDatabaseConnectionUpdate = TablesUpdate<'user_database_connections'>

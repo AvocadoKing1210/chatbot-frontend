@@ -41,6 +41,7 @@ export interface CreateChatData {
   mode: 'sql' | 'python'
   chartEnabled: boolean
   initialMessage?: string
+  databaseConnectionId?: string
 }
 
 export interface CreateFolderData {
