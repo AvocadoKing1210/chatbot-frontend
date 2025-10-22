@@ -151,6 +151,30 @@ export const Response = memo(
               const [showExec, setShowExec] = useState(false)
               const [showChart, setShowChart] = useState(false)
               const [isExecuting, setIsExecuting] = useState(false)
+              // Auto-show folded tool if this code has history
+              const codeKey = React.useMemo(() => {
+                const key = `exec_history_v1`
+                try {
+                  const raw = typeof window !== 'undefined' ? localStorage.getItem(key) : null
+                  if (!raw) return false
+                  const arr = JSON.parse(raw) as Array<{ codeHash: string; mode: string }>
+                  const hash = (() => {
+                    let h = 2166136261
+                    const s = `${mode}:${codeContent}`
+                    for (let i = 0; i < s.length; i++) {
+                      h ^= s.charCodeAt(i)
+                      h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)
+                    }
+                    return (h >>> 0).toString(16)
+                  })()
+                  return arr.some(e => e.codeHash === hash && e.mode === mode)
+                } catch {
+                  return false
+                }
+              }, [mode, codeContent])
+              React.useEffect(() => {
+                if (codeKey) setShowExec(true)
+              }, [codeKey])
               return (
                 <div className="space-y-3">
                   <CodeBlock 
@@ -161,6 +185,7 @@ export const Response = memo(
                     {...props}
                   >
                     <CodeBlockCopyButton iconOnly />
+                    {mode === 'sql' && (
                     <button
                       className="flex h-8 w-8 items-center justify-center rounded-md text-gray-600 transition-all hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={() => {
@@ -177,21 +202,23 @@ export const Response = memo(
                         <Play size={14} />
                       )}
                     </button>
+                    )}
                   </CodeBlock>
                   {showExec && (
                     <>
                       <ExecutionTool 
                         mode={mode as 'sql' | 'python'} 
                         code={codeContent} 
-                        autoRun={true}
+                        autoRun={false}
                         onSuccess={() => {
                           setIsExecuting(false)
                           if (chartEnabled) {
                             setShowChart(true)
                           }
                         }}
+                        onComplete={() => setIsExecuting(false)}
                       />
-                      {showChart && <ChartTool autoRun={true} />}
+                      {showChart && <ChartTool autoRun={false} />}
                     </>
                   )}
                 </div>
@@ -238,6 +265,30 @@ export const Response = memo(
               const [showExec, setShowExec] = useState(false)
               const [showChart, setShowChart] = useState(false)
               const [isExecuting, setIsExecuting] = useState(false)
+              // Auto-show folded tool if this code has history
+              const codeKey = React.useMemo(() => {
+                const key = `exec_history_v1`
+                try {
+                  const raw = typeof window !== 'undefined' ? localStorage.getItem(key) : null
+                  if (!raw) return false
+                  const arr = JSON.parse(raw) as Array<{ codeHash: string; mode: string }>
+                  const hash = (() => {
+                    let h = 2166136261
+                    const s = `${mode}:${codeContent}`
+                    for (let i = 0; i < s.length; i++) {
+                      h ^= s.charCodeAt(i)
+                      h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)
+                    }
+                    return (h >>> 0).toString(16)
+                  })()
+                  return arr.some(e => e.codeHash === hash && e.mode === mode)
+                } catch {
+                  return false
+                }
+              }, [mode, codeContent])
+              React.useEffect(() => {
+                if (codeKey) setShowExec(true)
+              }, [codeKey])
               return (
                 <div className="space-y-3">
                   <CodeBlock 
@@ -247,6 +298,7 @@ export const Response = memo(
                     showLineNumbers={true}
                   >
                     <CodeBlockCopyButton iconOnly />
+                    {mode === 'sql' && (
                     <button
                       className="flex h-8 w-8 items-center justify-center rounded-md text-gray-600 transition-all hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={() => {
@@ -263,21 +315,23 @@ export const Response = memo(
                         <Play size={14} />
                       )}
                     </button>
+                    )}
                   </CodeBlock>
                   {showExec && (
                     <>
                       <ExecutionTool 
                         mode={mode as 'sql' | 'python'} 
                         code={codeContent} 
-                        autoRun={true}
+                        autoRun={false}
                         onSuccess={() => {
                           setIsExecuting(false)
                           if (chartEnabled) {
                             setShowChart(true)
                           }
                         }}
+                        onComplete={() => setIsExecuting(false)}
                       />
-                      {showChart && <ChartTool autoRun={true} />}
+                      {showChart && <ChartTool autoRun={false} />}
                     </>
                   )}
                 </div>

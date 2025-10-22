@@ -4,6 +4,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Download } from "lucide-react"
 
 export type DataTableColumn = {
   name: string
@@ -16,15 +17,17 @@ export type DataTableProps = React.HTMLAttributes<HTMLDivElement> & {
   pageSizeOptions?: number[]
   defaultPageSize?: number
   meta?: { full: boolean; effectiveLimit: number; wasClamped: boolean }
+  onDownload?: () => void
 }
 
 export function DataTable({
   className,
   columns,
   rows,
-  pageSizeOptions = [10, 20, 50, 100],
+  pageSizeOptions = [5, 10, 20],
   defaultPageSize = 10,
   meta,
+  onDownload,
   ...props
 }: DataTableProps) {
   const [page, setPage] = React.useState(1)
@@ -41,9 +44,43 @@ export function DataTable({
     setPage(1)
   }, [pageSize])
 
+  const handleDownload = () => {
+    // Convert all rows to CSV
+    const csvRows = rows.map(row => {
+      return columns.map(col => {
+        const value = row[col.name]
+        if (value == null) return ''
+        const stringValue = String(value)
+        // Escape quotes and wrap in quotes if contains comma, quote, or newline
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+          return `"${stringValue.replace(/"/g, '""')}"`
+        }
+        return stringValue
+      })
+    })
+
+    // Add header row
+    const headerRow = columns.map(col => col.name)
+    const csvContent = [headerRow, ...csvRows]
+      .map(row => row.join(','))
+      .join('\n')
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `query-results-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   return (
-    <div className={cn("w-full overflow-x-auto", className)} {...props}>
-      <table className="w-full text-left text-sm">
+    <div className={cn("w-full", className)} {...props}>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-b">
             {columns.map((col) => (
@@ -78,7 +115,8 @@ export function DataTable({
             </tr>
           )}
         </tbody>
-      </table>
+        </table>
+      </div>
 
       <div className="flex flex-col items-center justify-between gap-3 px-2 py-3 sm:flex-row">
         <div className="text-xs text-muted-foreground">

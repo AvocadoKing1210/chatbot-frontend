@@ -228,6 +228,14 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
 
   const handleDatabaseSwitch = async (connection: SavedConnection | null) => {
     setCurrentConnection(connection)
+    // Persist selected connection locally for execution tool checks
+    try {
+      if (connection) {
+        localStorage.setItem('current_db_connection', JSON.stringify(connection))
+      } else {
+        localStorage.removeItem('current_db_connection')
+      }
+    } catch {}
     
     // Update the chat's database connection in Supabase
     try {
@@ -357,10 +365,20 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
         if (chat.databaseConnectionId) {
           const chatConnection = connections.find(conn => conn.id === chat.databaseConnectionId)
           setCurrentConnection(chatConnection || null)
+          try {
+            if (chatConnection) {
+              localStorage.setItem('current_db_connection', JSON.stringify(chatConnection))
+            }
+          } catch {}
         } else {
           // Set the first valid connection as current, or null if none
           const validConnection = connections.find(conn => conn.isValid)
           setCurrentConnection(validConnection || null)
+          try {
+            if (validConnection) {
+              localStorage.setItem('current_db_connection', JSON.stringify(validConnection))
+            }
+          } catch {}
         }
       } catch (error) {
         console.error('Error loading database connections:', error)

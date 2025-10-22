@@ -117,12 +117,14 @@ export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
 export type ToolOutputProps = ComponentProps<"div"> & {
   output: ToolUIPart["output"];
   errorText: ToolUIPart["errorText"];
+  downloadButton?: React.ReactNode;
 };
 
 export const ToolOutput = ({
   className,
   output,
   errorText,
+  downloadButton,
   ...props
 }: ToolOutputProps) => {
   if (!(output || errorText)) {
@@ -141,9 +143,16 @@ export const ToolOutput = ({
 
   return (
     <div className={cn("space-y-2 p-4", className)} {...props}>
-      <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-        {errorText ? "Error" : "Result"}
-      </h4>
+      <div className="flex items-center justify-between">
+        <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+          {errorText ? "Error" : "Result"}
+        </h4>
+        {downloadButton && !errorText && (
+          <div className="ml-auto">
+            {downloadButton}
+          </div>
+        )}
+      </div>
       <div
         className={cn(
           "overflow-x-auto rounded-md text-xs [&_table]:w-full",
