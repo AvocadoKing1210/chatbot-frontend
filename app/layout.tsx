@@ -7,6 +7,7 @@ import { ChatProvider } from "@/components/providers/chat-provider";
 import { SidebarProvider } from "@/components/providers/sidebar-provider";
 import { PersistentLayout } from "@/components/layout/persistent-layout";
 import { ConditionalLayout } from "@/components/layout/conditional-layout";
+import { Toaster } from "@/components/ui/toaster";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -65,6 +66,7 @@ export default function RootLayout({
               {children}
             </ConditionalLayout>
           </AuthProvider>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

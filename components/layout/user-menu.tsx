@@ -13,8 +13,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/components/providers/auth-provider"
 import { getUserProfileFromAuth, getUserInitials } from "@/lib/auth/user-utils"
-import { LogOut, Mail } from "lucide-react"
+import { LogOut, Mail, Plug } from "lucide-react"
 import { GoogleIcon } from "@/components/ui/google-icon"
+import { DatabaseConnectionModal } from "@/components/layout/database-connection-modal"
 import type { User } from "@/data/user"
 
 interface UserMenuProps {
@@ -28,6 +29,7 @@ export function UserMenu({
 }: UserMenuProps) {
   const { user: authUser, signOut } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [isDatabaseModalOpen, setIsDatabaseModalOpen] = useState(false)
 
   // Get user profile directly from auth data - no database calls needed!
   const displayUser = authUser ? getUserProfileFromAuth(authUser) : (user || {
@@ -64,6 +66,7 @@ export function UserMenu({
   }
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-auto p-2 w-full justify-start transition-all duration-200 hover:bg-accent">
@@ -110,6 +113,14 @@ export function UserMenu({
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem 
+          className="cursor-pointer"
+          onClick={() => setIsDatabaseModalOpen(true)}
+        >
+          <Plug className="mr-2 h-4 w-4" />
+          <span>Database Connection</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem 
           className="cursor-pointer text-red-600 focus:text-red-600"
           onClick={handleLogout}
           disabled={isLoggingOut}
@@ -119,5 +130,11 @@ export function UserMenu({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    
+    <DatabaseConnectionModal
+      open={isDatabaseModalOpen}
+      onOpenChange={setIsDatabaseModalOpen}
+    />
+  </>
   )
 }

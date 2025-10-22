@@ -128,20 +128,40 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
       setIsLoading(true)
       
       const timeoutId = window.setTimeout(async () => {
-        const aiResponse = generateAIResponse(userMessage)
-        const messageId = await addMessage(chat.id, aiResponse, 'assistant')
-        
-        // Mark the new AI message for streaming
-        if (messageId) {
-          setStreamingMessages(prev => new Set(prev).add(messageId))
+        try {
+          const aiResponse = generateAIResponse(userMessage)
+          const messageId = await addMessage(chat.id, aiResponse, 'assistant')
+          
+          // Mark the new AI message for streaming
+          if (messageId) {
+            setStreamingMessages(prev => new Set(prev).add(messageId))
+          }
+        } catch (error) {
+          console.error('Error generating AI response:', error)
+        } finally {
+          setIsLoading(false)
+          pendingTimeoutsRef.current.delete(timeoutId)
         }
-        
-        setIsLoading(false)
-        pendingTimeoutsRef.current.delete(timeoutId)
       }, 1000 + Math.random() * 2000)
       pendingTimeoutsRef.current.add(timeoutId)
     }
-  }, [chat.id]) // Only depend on chat.id to prevent re-running on message changes
+  }, [chat.id, chat.messages.length]) // Depend on chat.id and message count to detect new chats
+
+  // Cleanup timeouts when component unmounts or chat changes
+  React.useEffect(() => {
+    return () => {
+      // Clear all pending timeouts
+      pendingTimeoutsRef.current.forEach(timeoutId => {
+        clearTimeout(timeoutId)
+      })
+      pendingTimeoutsRef.current.clear()
+    }
+  }, [chat.id])
+
+  // Reset initial message processed flag when chat changes
+  React.useEffect(() => {
+    initialMessageProcessedRef.current = false
+  }, [chat.id])
 
   // Memoize messages to prevent unnecessary re-renders
   const memoizedMessages = React.useMemo(() => chat.messages, [chat.messages])
@@ -159,16 +179,20 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
 
     // Simulate AI response delay
     const timeoutId = window.setTimeout(async () => {
-      const aiResponse = generateAIResponse(message)
-      const messageId = await addMessage(chat.id, aiResponse, 'assistant')
-      
-      // Mark the new AI message for streaming
-      if (messageId) {
-        setStreamingMessages(prev => new Set(prev).add(messageId))
+      try {
+        const aiResponse = generateAIResponse(message)
+        const messageId = await addMessage(chat.id, aiResponse, 'assistant')
+        
+        // Mark the new AI message for streaming
+        if (messageId) {
+          setStreamingMessages(prev => new Set(prev).add(messageId))
+        }
+      } catch (error) {
+        console.error('Error generating AI response:', error)
+      } finally {
+        setIsLoading(false)
+        pendingTimeoutsRef.current.delete(timeoutId)
       }
-      
-      setIsLoading(false)
-      pendingTimeoutsRef.current.delete(timeoutId)
     }, 1000 + Math.random() * 2000) // 1-3 second delay
     pendingTimeoutsRef.current.add(timeoutId)
   }

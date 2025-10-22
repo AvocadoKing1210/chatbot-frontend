@@ -53,6 +53,8 @@ interface ChatContextType {
   // Animation states
   animatingChats: Set<string>
   setAnimatingChats: React.Dispatch<React.SetStateAction<Set<string>>>
+  animatingFolders: Set<string>
+  setAnimatingFolders: React.Dispatch<React.SetStateAction<Set<string>>>
   
   // Chat operations
   createChat: (data: CreateChatData) => Promise<ChatItem>
@@ -70,6 +72,8 @@ interface ChatContextType {
   // Animation operations
   animateChatOperation: (chatId: string, operation: 'pin' | 'unpin' | 'move' | 'delete' | 'add') => void
   onAnimationComplete: (chatId: string, animationType: string) => void
+  animateFolderOperation: (folderId: string, operation: 'delete' | 'add') => void
+  onFolderAnimationComplete: (folderId: string, animationType: string) => void
   
   // AI response simulation
   generateAIResponse: (userMessage: string) => string
@@ -96,6 +100,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const [folders, setFolders] = React.useState<FolderItem[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [animatingChats, setAnimatingChats] = React.useState<Set<string>>(new Set())
+  const [animatingFolders, setAnimatingFolders] = React.useState<Set<string>>(new Set())
   
   // Load data when user is authenticated
   React.useEffect(() => {
@@ -898,6 +903,21 @@ pipeline.save_model('model.pkl')
     })
   }, [])
 
+  // Folder animation functions
+  const animateFolderOperation = React.useCallback((folderId: string, operation: 'delete' | 'add') => {
+    const animationKey = `${folderId}-${operation}`
+    setAnimatingFolders(prev => new Set([...prev, animationKey]))
+  }, [])
+
+  const onFolderAnimationComplete = React.useCallback((folderId: string, animationType: string) => {
+    const animationKey = `${folderId}-${animationType}`
+    setAnimatingFolders(prev => {
+      const newSet = new Set(prev)
+      newSet.delete(animationKey)
+      return newSet
+    })
+  }, [])
+
   const createChatHandler = React.useCallback(async (data: CreateChatData): Promise<ChatItem> => {
     if (!user?.id) throw new Error('User not authenticated')
     
@@ -1069,12 +1089,16 @@ pipeline.save_model('model.pkl')
     try {
       const newFolder = await createFolder(user.id, data)
       setFolders(prev => [newFolder, ...prev])
+      
+      // Animate the new folder
+      animateFolderOperation(newFolder.id, 'add')
+      
       return newFolder
     } catch (error) {
       console.error('Error creating folder:', error)
       throw error
     }
-  }, [user?.id])
+  }, [user?.id, animateFolderOperation])
 
   const updateFolderHandler = React.useCallback(async (folderId: string, updates: Partial<FolderItem>) => {
     try {
@@ -1106,27 +1130,37 @@ pipeline.save_model('model.pkl')
 
   const deleteFolderHandler = React.useCallback(async (folderId: string) => {
     try {
-      // Delete from database
-      await deleteFolder(folderId)
+      // Start delete animation
+      animateFolderOperation(folderId, 'delete')
       
-      // Update local state
-      setFolders(prev => prev.filter(folder => folder.id !== folderId))
-      
-      // Remove folderId from all chats that were in this folder
-      setChats(prev => {
-        const updatedChats = prev.map(chat => {
-          if (chat.folderId === folderId) {
-            return { ...chat, folderId: undefined }
-          }
-          return chat
-        })
-        return updatedChats
-      })
+      // Wait for animation to complete before actually deleting
+      setTimeout(async () => {
+        try {
+          // Delete from database
+          await deleteFolder(folderId)
+          
+          // Update local state
+          setFolders(prev => prev.filter(folder => folder.id !== folderId))
+          
+          // Remove folderId from all chats that were in this folder
+          setChats(prev => {
+            const updatedChats = prev.map(chat => {
+              if (chat.folderId === folderId) {
+                return { ...chat, folderId: undefined }
+              }
+              return chat
+            })
+            return updatedChats
+          })
+        } catch (error) {
+          console.error('Error deleting folder:', error)
+        }
+      }, 200) // Match the same timing as chat delete animation
     } catch (error) {
       console.error('Error deleting folder:', error)
       throw error
     }
-  }, [])
+  }, [animateFolderOperation])
 
   const moveChatToFolderHandler = React.useCallback(async (chatId: string, folderId?: string) => {
     try {
@@ -1176,6 +1210,8 @@ pipeline.save_model('model.pkl')
     isLoading,
     animatingChats,
     setAnimatingChats,
+    animatingFolders,
+    setAnimatingFolders,
     createChat: createChatHandler,
     addMessage,
     updateChat: updateChatHandler,
@@ -1187,6 +1223,8 @@ pipeline.save_model('model.pkl')
     moveChatToFolder: moveChatToFolderHandler,
     animateChatOperation,
     onAnimationComplete,
+    animateFolderOperation,
+    onFolderAnimationComplete,
     generateAIResponse
   }
 

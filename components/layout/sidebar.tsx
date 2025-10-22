@@ -73,6 +73,7 @@ export function Sidebar({
     folders, 
     isLoading,
     animatingChats,
+    animatingFolders,
     createChat, 
     setCurrentChat, 
     togglePin, 
@@ -82,7 +83,8 @@ export function Sidebar({
     updateFolder,
     deleteFolder,
     moveChatToFolder,
-    onAnimationComplete
+    onAnimationComplete,
+    onFolderAnimationComplete
   } = useChat()
   const router = useRouter()
 
@@ -575,6 +577,8 @@ export function Sidebar({
                   isCollapsed={isCollapsed}
                   animatingChats={animatingChats}
                   onAnimationComplete={onAnimationComplete}
+                  animatingFolders={animatingFolders}
+                  onFolderAnimationComplete={onFolderAnimationComplete}
                 />
               ))
             )}

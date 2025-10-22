@@ -47,6 +47,8 @@ interface FolderRowProps {
   // Animation props
   animatingChats?: Set<string>
   onAnimationComplete?: (chatId: string, animationType: string) => void
+  animatingFolders?: Set<string>
+  onFolderAnimationComplete?: (folderId: string, animationType: string) => void
 }
 
 export function FolderRow({
@@ -64,11 +66,38 @@ export function FolderRow({
   isCollapsed = false,
   className,
   animatingChats = new Set(),
-  onAnimationComplete
+  onAnimationComplete,
+  animatingFolders = new Set(),
+  onFolderAnimationComplete
 }: FolderRowProps) {
   
   // Get chats that belong to this folder
   const folderChats = chats.filter(chat => folder.chatIds.includes(chat.id))
+  
+  // Check if this folder is currently animating
+  const isDeleting = animatingFolders.has(`${folder.id}-delete`)
+  const isAdding = animatingFolders.has(`${folder.id}-add`)
+  
+  // Handle animation completion
+  React.useEffect(() => {
+    if (isDeleting && onFolderAnimationComplete) {
+      const timer = setTimeout(() => {
+        onFolderAnimationComplete(folder.id, 'delete')
+      }, 200) // Match the animation duration
+      
+      return () => clearTimeout(timer)
+    }
+  }, [isDeleting, folder.id, onFolderAnimationComplete])
+  
+  React.useEffect(() => {
+    if (isAdding && onFolderAnimationComplete) {
+      const timer = setTimeout(() => {
+        onFolderAnimationComplete(folder.id, 'add')
+      }, 200) // Match the animation duration
+      
+      return () => clearTimeout(timer)
+    }
+  }, [isAdding, folder.id, onFolderAnimationComplete])
   
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp)
@@ -100,9 +129,21 @@ export function FolderRow({
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.99 }}
             onClick={onToggle}
+            animate={isDeleting ? { 
+              opacity: 0, 
+              scale: 0.95, 
+              x: -20,
+              transition: { duration: 0.2, ease: "easeInOut" }
+            } : isAdding ? {
+              opacity: [0, 1],
+              scale: [0.95, 1],
+              x: [20, 0],
+              transition: { duration: 0.2, ease: "easeOut" }
+            } : {}}
             className={cn(
               "flex items-center justify-between rounded-lg p-2 text-sm hover:bg-accent cursor-pointer transition-all duration-200 group relative",
-              isCollapsed && "justify-center"
+              isCollapsed && "justify-center",
+              isDeleting && "pointer-events-none"
             )}
           >
             <div className="flex items-center gap-2 flex-1 min-w-0">

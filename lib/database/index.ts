@@ -1,6 +1,7 @@
 // Database utilities and types
 export * from './queries'
 export * from './transformers'
+export * from './connection-service'
 export * from '../types/database'
 
 // Re-export commonly used types for convenience
