@@ -4,7 +4,6 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Download } from "lucide-react"
 
 export type DataTableColumn = {
   name: string
@@ -17,17 +16,15 @@ export type DataTableProps = React.HTMLAttributes<HTMLDivElement> & {
   pageSizeOptions?: number[]
   defaultPageSize?: number
   meta?: { full: boolean; effectiveLimit: number; wasClamped: boolean }
-  onDownload?: () => void
 }
 
 export function DataTable({
   className,
   columns,
   rows,
-  pageSizeOptions = [5, 10, 20],
+  pageSizeOptions = [5, 10, 20, 40],
   defaultPageSize = 10,
   meta,
-  onDownload,
   ...props
 }: DataTableProps) {
   const [page, setPage] = React.useState(1)
@@ -44,81 +41,50 @@ export function DataTable({
     setPage(1)
   }, [pageSize])
 
-  const handleDownload = () => {
-    // Convert all rows to CSV
-    const csvRows = rows.map(row => {
-      return columns.map(col => {
-        const value = row[col.name]
-        if (value == null) return ''
-        const stringValue = String(value)
-        // Escape quotes and wrap in quotes if contains comma, quote, or newline
-        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-          return `"${stringValue.replace(/"/g, '""')}"`
-        }
-        return stringValue
-      })
-    })
-
-    // Add header row
-    const headerRow = columns.map(col => col.name)
-    const csvContent = [headerRow, ...csvRows]
-      .map(row => row.join(','))
-      .join('\n')
-
-    // Create and download file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `query-results-${new Date().toISOString().slice(0, 10)}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
   return (
-    <div className={cn("w-full", className)} {...props}>
-      <div className="overflow-x-auto">
+    <div className={cn("w-full flex flex-col", className)} {...props}>
+      {/* Scrollable table container */}
+      <div className="overflow-x-auto flex-1">
         <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b">
-            {columns.map((col) => (
-              <th key={col.name} className="whitespace-nowrap px-3 py-2 font-medium text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <span>{col.name}</span>
-                  <span className="text-[10px] uppercase tracking-wider">{col.type}</span>
-                </div>
-              </th>
+          <thead>
+            <tr className="border-b">
+              {columns.map((col) => (
+                <th key={col.name} className="whitespace-nowrap px-3 py-2 font-medium text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <span>{col.name}</span>
+                    <span className="text-[10px] uppercase tracking-wider">{col.type}</span>
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {currentRows.map((row, rowIndex) => (
+              <tr key={rowIndex} className="border-b last:border-0">
+                {columns.map((col) => {
+                  const value = row[col.name]
+                  const display = formatCellValue(value, col.type)
+                  return (
+                    <td key={col.name} className="whitespace-nowrap px-3 py-2 align-top">
+                      {display}
+                    </td>
+                  )
+                })}
+              </tr>
             ))}
-          </tr>
-        </thead>
-        <tbody>
-          {currentRows.map((row, rowIndex) => (
-            <tr key={rowIndex} className="border-b last:border-0">
-              {columns.map((col) => {
-                const value = row[col.name]
-                const display = formatCellValue(value, col.type)
-                return (
-                  <td key={col.name} className="whitespace-nowrap px-3 py-2 align-top">
-                    {display}
-                  </td>
-                )
-              })}
-            </tr>
-          ))}
-          {currentRows.length === 0 && (
-            <tr>
-              <td className="px-3 py-6 text-center text-muted-foreground" colSpan={columns.length}>
-                No data
-              </td>
-            </tr>
-          )}
-        </tbody>
+            {currentRows.length === 0 && (
+              <tr>
+                <td className="px-3 py-6 text-center text-muted-foreground" colSpan={columns.length}>
+                  No data
+                </td>
+              </tr>
+            )}
+          </tbody>
         </table>
       </div>
 
-      <div className="flex flex-col items-center justify-between gap-3 px-2 py-3 sm:flex-row">
+      {/* Fixed pagination controls */}
+      <div className="flex flex-col items-center justify-between gap-3 px-2 py-3 sm:flex-row border-t bg-background/95 backdrop-blur-sm sticky bottom-0">
         <div className="text-xs text-muted-foreground">
           Showing {currentRows.length > 0 ? startIndex + 1 : 0}-{Math.min(endIndex, totalRows)} of {totalRows}
           {meta && (

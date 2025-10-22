@@ -5,10 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "./tool"
 import { DataTable, type DataTableColumn } from "./data-table"
 import { cn } from "@/lib/utils"
-import { Play, Repeat, Download, BarChart3 } from "lucide-react"
+import { Play, Repeat } from "lucide-react"
 import { mockQueryExecutionResponse } from "@/data"
-import { ChartCreationModal, ChartConfig } from "./chart-creation-modal"
-import { ChartDisplay } from "./chart-display"
 //
 
 type ExecutionState = "idle" | "running" | "success" | "error"
@@ -70,50 +68,7 @@ export function ExecutionTool({ className, mode, code, autoRun = false, onSucces
   const [meta, setMeta] = React.useState<{ full: boolean; effectiveLimit: number; wasClamped: boolean } | undefined>()
   const [queryId, setQueryId] = React.useState<number | undefined>()
   const [userOpened, setUserOpened] = React.useState<boolean>(autoRun)
-  const [showChartModal, setShowChartModal] = React.useState(false)
-  const [createdCharts, setCreatedCharts] = React.useState<ChartConfig[]>([])
   const codeHash = React.useMemo(() => hashCode(`${mode}:${code}`), [mode, code])
-
-  const handleDownload = () => {
-    // Convert all rows to CSV
-    const csvRows = rows.map(row => {
-      return columns.map(col => {
-        const value = row[col.name]
-        if (value == null) return ''
-        const stringValue = String(value)
-        // Escape quotes and wrap in quotes if contains comma, quote, or newline
-        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-          return `"${stringValue.replace(/"/g, '""')}"`
-        }
-        return stringValue
-      })
-    })
-
-    // Add header row
-    const headerRow = columns.map(col => col.name)
-    const csvContent = [headerRow, ...csvRows]
-      .map(row => row.join(','))
-      .join('\n')
-
-    // Create and download file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `query-results-${new Date().toISOString().slice(0, 10)}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
-  const handleChartCreate = (config: ChartConfig) => {
-    setCreatedCharts(prev => [...prev, config])
-  }
-
-  const handleChartDelete = (index: number) => {
-    setCreatedCharts(prev => prev.filter((_, i) => i !== index))
-  }
 
   const handleExecute = async () => {
     setUserOpened(true)
@@ -233,6 +188,7 @@ export function ExecutionTool({ className, mode, code, autoRun = false, onSucces
       <Tool defaultOpen={userOpened}>
         <ToolHeader title="Execution" type="tool-database_query" state={toolState} icon={Play} />
         <ToolContent>
+
           <ToolOutput
             output={
               execState === "success" ? (
@@ -242,57 +198,9 @@ export function ExecutionTool({ className, mode, code, autoRun = false, onSucces
               ) : undefined
             }
             errorText={execError}
-            downloadButton={
-              execState === "success" && rows.length > 0 ? (
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowChartModal(true)}
-                    className="h-6 w-6 p-0 hover:bg-muted/50"
-                    title="Create Chart"
-                  >
-                    <BarChart3 className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleDownload}
-                    className="h-6 w-6 p-0 hover:bg-muted/50"
-                    title="Download CSV"
-                  >
-                    <Download className="h-3 w-3" />
-                  </Button>
-                </div>
-              ) : undefined
-            }
           />
         </ToolContent>
       </Tool>
-
-      {/* Chart Creation Modal */}
-      <ChartCreationModal
-        open={showChartModal}
-        onOpenChange={setShowChartModal}
-        columns={columns}
-        rows={rows}
-        onChartCreate={handleChartCreate}
-      />
-
-      {/* Created Charts */}
-      {createdCharts.length > 0 && (
-        <div className="mt-4 space-y-4">
-          {createdCharts.map((chart, index) => (
-            <ChartDisplay
-              key={`${chart.title}-${index}`}
-              config={chart}
-              columns={columns}
-              rows={rows}
-              onDelete={() => handleChartDelete(index)}
-            />
-          ))}
-        </div>
-      )}
     </div>
   )
 }
