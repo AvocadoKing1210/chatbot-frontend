@@ -125,7 +125,10 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
     // Clear any streaming messages on mount - existing messages should not stream
     setStreamingMessages(new Set())
     setStoppedMessageIds(new Set())
-    
+  }, [chat.id]) // Only depend on chat.id for initialization
+
+  // Handle initial AI response for new chats (separate effect)
+  React.useEffect(() => {
     // Check if this is a new chat with only a user message (needs AI response)
     const hasOnlyUserMessage = chat.messages.length === 1 && chat.messages[0].role === 'user'
     if (hasOnlyUserMessage && !initialMessageProcessedRef.current) {
@@ -134,9 +137,10 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
       const userMessage = chat.messages[0].content
       setIsLoading(true)
       
-      const timeoutId = window.setTimeout(async () => {
+      // Use async function to handle the AI response
+      const generateInitialResponse = async () => {
         try {
-          const aiResponse = generateAIResponse(userMessage)
+          const aiResponse = await generateAIResponse(userMessage, selectedMode)
           const messageId = await addMessage(chat.id, aiResponse, 'assistant')
           
           // Mark the new AI message for streaming
@@ -145,14 +149,17 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
           }
         } catch (error) {
           console.error('Error generating AI response:', error)
+          // Add error message to chat
+          const errorMessage = `I apologize, but I encountered an error while processing your request. Please try again.`
+          await addMessage(chat.id, errorMessage, 'assistant')
         } finally {
           setIsLoading(false)
-          pendingTimeoutsRef.current.delete(timeoutId)
         }
-      }, 1000 + Math.random() * 2000)
-      pendingTimeoutsRef.current.add(timeoutId)
+      }
+      
+      generateInitialResponse()
     }
-  }, [chat.id, chat.messages.length]) // Depend on chat.id and message count to detect new chats
+  }, [chat.id, chat.messages.length]) // Only depend on chat.id and message count
 
   // Cleanup timeouts when component unmounts or chat changes
   React.useEffect(() => {
@@ -184,24 +191,23 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
     setIsLoading(true)
     // Do not clear stopped ids immediately to ensure StreamingResponse receives the stop signal
 
-    // Simulate AI response delay
-    const timeoutId = window.setTimeout(async () => {
-      try {
-        const aiResponse = generateAIResponse(message)
-        const messageId = await addMessage(chat.id, aiResponse, 'assistant')
-        
-        // Mark the new AI message for streaming
-        if (messageId) {
-          setStreamingMessages(prev => new Set(prev).add(messageId))
-        }
-      } catch (error) {
-        console.error('Error generating AI response:', error)
-      } finally {
-        setIsLoading(false)
-        pendingTimeoutsRef.current.delete(timeoutId)
+    try {
+      // Generate AI response using the real AI service
+      const aiResponse = await generateAIResponse(message, selectedMode)
+      const messageId = await addMessage(chat.id, aiResponse, 'assistant')
+      
+      // Mark the new AI message for streaming
+      if (messageId) {
+        setStreamingMessages(prev => new Set(prev).add(messageId))
       }
-    }, 1000 + Math.random() * 2000) // 1-3 second delay
-    pendingTimeoutsRef.current.add(timeoutId)
+    } catch (error) {
+      console.error('Error generating AI response:', error)
+      // Add error message to chat
+      const errorMessage = `I apologize, but I encountered an error while processing your request. Please try again.`
+      await addMessage(chat.id, errorMessage, 'assistant')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleStop = () => {
@@ -301,17 +307,24 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
           c.id === chat.id ? { ...c, messages: updatedMessages } : c
         ))
         // Trigger regeneration
-        const timeoutId = window.setTimeout(async () => {
-          const aiResponse = generateAIResponse(previousMessage.content)
-          const newMessageId = await addMessage(chat.id, aiResponse, 'assistant')
-          
-          // Mark the regenerated message for streaming
-          if (newMessageId) {
-            setStreamingMessages(prev => new Set(prev).add(newMessageId))
+        const regenerateResponse = async () => {
+          try {
+            const aiResponse = await generateAIResponse(previousMessage.content, selectedMode)
+            const newMessageId = await addMessage(chat.id, aiResponse, 'assistant')
+            
+            // Mark the regenerated message for streaming
+            if (newMessageId) {
+              setStreamingMessages(prev => new Set(prev).add(newMessageId))
+            }
+          } catch (error) {
+            console.error('Error regenerating AI response:', error)
+            // Add error message to chat
+            const errorMessage = `I apologize, but I encountered an error while regenerating the response. Please try again.`
+            await addMessage(chat.id, errorMessage, 'assistant')
           }
-          pendingTimeoutsRef.current.delete(timeoutId)
-        }, 500)
-        pendingTimeoutsRef.current.add(timeoutId)
+        }
+        
+        regenerateResponse()
       }
     }
   }

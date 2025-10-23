@@ -311,6 +311,7 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
   }, [editingChart])
 
   const handleExecute = async () => {
+    console.log(`[ExecutionTool] handleExecute called for codeHash: ${codeHash}`)
     setUserOpened(true)
     setExecState("running")
     setExecError(undefined)
@@ -394,7 +395,6 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
 
   // Track if we've already attempted execution to prevent re-runs
   const hasExecutedRef = React.useRef(false)
-  const previousShouldExecuteRef = React.useRef(shouldExecute)
 
   // Reset execution flag when code changes
   React.useEffect(() => {
@@ -426,12 +426,12 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
     chartsLoadedRef.current = codeHash
   }, [codeHash])
 
-  // Execute query when shouldExecute changes from false to true (user clicked execute button)
+  // Execute query when shouldExecute is true and we haven't executed yet
   React.useEffect(() => {
-    const shouldExecuteNow = shouldExecute && !previousShouldExecuteRef.current
-    previousShouldExecuteRef.current = shouldExecute
+    console.log(`[ExecutionTool] shouldExecute effect: shouldExecute=${shouldExecute}, execState=${execState}, hasExecuted=${hasExecutedRef.current}`)
     
-    if (shouldExecuteNow && execState === "idle" && !hasExecutedRef.current) {
+    if (shouldExecute && execState === "idle" && !hasExecutedRef.current) {
+      console.log(`[ExecutionTool] Starting query execution`)
       hasExecutedRef.current = true
       void handleExecute()
     }

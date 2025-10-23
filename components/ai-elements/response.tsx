@@ -9,7 +9,6 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { Button } from "@/components/ui/button";
 import { Download, Play, Loader2 } from "lucide-react";
 import { ExecutionTool } from "./execution-tool";
-import { ChartTool } from "./chart-tool";
 
 type ResponseProps = ComponentProps<typeof Streamdown> & {
   chartEnabled?: boolean;
@@ -218,7 +217,6 @@ export const Response = memo(
                         }}
                         onComplete={() => setIsExecuting(false)}
                       />
-                      {showChart && <ChartTool loadFromHistory={true} />}
                     </>
                   )}
                 </div>
@@ -331,7 +329,6 @@ export const Response = memo(
                         }}
                         onComplete={() => setIsExecuting(false)}
                       />
-                      {showChart && <ChartTool loadFromHistory={true} />}
                     </>
                   )}
                 </div>
