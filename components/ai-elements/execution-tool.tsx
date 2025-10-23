@@ -166,6 +166,7 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
   
   // Store created charts
   const [createdCharts, setCreatedCharts] = React.useState<Array<{ id: string; config: ChartConfig }>>([])
+  const [editingChart, setEditingChart] = React.useState<{ id: string; config: ChartConfig } | null>(null)
   
   // Save modal state to localStorage whenever it changes
   React.useEffect(() => {
@@ -246,6 +247,26 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
     const updatedCharts = charts.filter(chart => chart.id !== chartId)
     saveCharts(updatedCharts)
   }, [])
+
+  const beginEditChart = React.useCallback((chartId: string) => {
+    const chart = createdCharts.find(c => c.id === chartId)
+    if (!chart) return
+    setEditingChart(chart)
+    setChartModalOpen(true)
+  }, [createdCharts])
+
+  const handleChartUpdate = React.useCallback((updated: ChartConfig) => {
+    if (!editingChart) return
+    setCreatedCharts(prev => prev.map(c => c.id === editingChart.id ? { ...c, config: updated } : c))
+    // persist
+    const charts = loadCharts()
+    const index = charts.findIndex(ch => ch.id === editingChart.id)
+    if (index !== -1) {
+      charts[index] = { ...charts[index], config: updated }
+      saveCharts(charts)
+    }
+    setEditingChart(null)
+  }, [editingChart])
 
   const handleExecute = async () => {
     setUserOpened(true)
@@ -470,6 +491,7 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
               config={chart.config}
               columns={columns}
               rows={rows}
+              onEdit={() => beginEditChart(chart.id)}
               onDelete={() => handleChartDelete(chart.id)}
             />
           ))}
@@ -483,6 +505,8 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
         columns={columns}
         rows={rows}
         onChartCreate={handleChartCreate}
+        initialConfig={editingChart?.config}
+        onChartUpdate={handleChartUpdate}
       />
     </div>
   )

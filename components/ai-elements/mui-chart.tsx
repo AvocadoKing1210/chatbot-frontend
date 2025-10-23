@@ -45,7 +45,7 @@ export function MuiChart({ config, columns, rows, onEdit, onDelete }: MuiChartPr
   // Transform data for MUI Charts
   const chartData = React.useMemo(() => {
     if (!config.xAxis || rows.length === 0) {
-      return { xLabels: [], data: [], pieData: [], scatterData: [] }
+      return { xLabels: [], data: [], series: [], pieData: [], scatterData: [] }
     }
 
     if (config.type === 'pie') {
@@ -74,7 +74,7 @@ export function MuiChart({ config, columns, rows, onEdit, onDelete }: MuiChartPr
         value,
       }))
 
-      return { xLabels: [], data: [], pieData, scatterData: [] }
+      return { xLabels: [], data: [], series: [], pieData, scatterData: [] }
     }
 
     if (config.type === 'scatter') {
@@ -96,32 +96,76 @@ export function MuiChart({ config, columns, rows, onEdit, onDelete }: MuiChartPr
         })
         .filter(Boolean) as Array<{ x: number; y: number; id: string }>
 
-      return { xLabels: [], data: [], pieData: [], scatterData }
+      return { xLabels: [], data: [], series: [], pieData: [], scatterData }
     }
 
-    // For bar and line charts
-    const dataMap = new Map<string, number>()
-    
-    rows.forEach(row => {
-      const xValue = String(row[config.xAxis] || '')
-      const yValue = row[config.yAxis]
-      
-      if (xValue && yValue !== null && yValue !== undefined) {
-        const numericValue = typeof yValue === 'number' ? yValue : parseFloat(String(yValue))
-        if (!isNaN(numericValue)) {
-          if (dataMap.has(xValue)) {
-            dataMap.set(xValue, dataMap.get(xValue)! + numericValue)
-          } else {
-            dataMap.set(xValue, numericValue)
+    // Get unique x-axis values
+    const xValues = new Set<string>()
+    rows.forEach((row) => {
+      const x = String(row[config.xAxis] ?? '')
+      if (x) xValues.add(x)
+    })
+    const xLabels = Array.from(xValues)
+
+    // Handle different bar chart types
+    if (config.type === 'bar' && config.barOptions?.type === 'multi-series' && config.barOptions.series && config.barOptions.series.length > 0) {
+      // Multi-series: build data for each series
+      const series = config.barOptions.series.map(s => {
+        const values = xLabels.map(label => {
+          const row = rows.find(r => String(r[config.xAxis] ?? '') === label)
+          if (!row) return 0
+          const val = row[s.column]
+          if (val == null) return 0
+          const num = typeof val === 'number' ? val : parseFloat(String(val))
+          return isNaN(num) ? 0 : num
+        })
+        return {
+          data: values,
+          label: s.label || s.column
+        }
+      })
+      return { xLabels, data: [], series, pieData: [], scatterData: [] }
+    } else if (config.type === 'bar' && config.barOptions?.type === 'stacked' && config.barOptions.stackGroups && config.barOptions.stackGroups.length > 0) {
+      // Stacked: build data for each stack group
+      const series = config.barOptions.stackGroups.flatMap(group => 
+        group.series.map(seriesName => {
+          const values = xLabels.map(label => {
+            const row = rows.find(r => String(r[config.xAxis] ?? '') === label)
+            if (!row) return 0
+            const val = row[seriesName]
+            if (val == null) return 0
+            const num = typeof val === 'number' ? val : parseFloat(String(val))
+            return isNaN(num) ? 0 : num
+          })
+          return {
+            data: values,
+            label: seriesName,
+            stack: group.name
+          }
+        })
+      )
+      return { xLabels, data: [], series, pieData: [], scatterData: [] }
+    } else {
+      // Basic single series
+      const dataMap = new Map<string, number>()
+      rows.forEach(row => {
+        const xValue = String(row[config.xAxis] || '')
+        const yValue = row[config.yAxis]
+        
+        if (xValue && yValue !== null && yValue !== undefined) {
+          const numericValue = typeof yValue === 'number' ? yValue : parseFloat(String(yValue))
+          if (!isNaN(numericValue)) {
+            if (dataMap.has(xValue)) {
+              dataMap.set(xValue, dataMap.get(xValue)! + numericValue)
+            } else {
+              dataMap.set(xValue, numericValue)
+            }
           }
         }
-      }
-    })
-
-    const xLabels = Array.from(dataMap.keys())
-    const data = Array.from(dataMap.values())
-
-    return { xLabels, data, pieData: [], scatterData: [] }
+      })
+      const data = xLabels.map(label => dataMap.get(label) || 0)
+      return { xLabels, data, series: [{ data, label: config.yAxis }], pieData: [], scatterData: [] }
+    }
   }, [config, rows])
 
   const handleOpenModal = () => {
@@ -135,7 +179,7 @@ export function MuiChart({ config, columns, rows, onEdit, onDelete }: MuiChartPr
     ? chartData.pieData.length > 0
     : config.type === 'scatter'
     ? chartData.scatterData.length > 0
-    : chartData.xLabels.length > 0 && chartData.data.length > 0
+    : chartData.xLabels.length > 0 && (chartData.data.length > 0 || chartData.series.length > 0)
 
   if (!hasData) {
     return (
@@ -221,25 +265,38 @@ export function MuiChart({ config, columns, rows, onEdit, onDelete }: MuiChartPr
       case 'bar':
         return (
           <BarChart
-            xAxis={[
+            xAxis={config.barOptions?.layout === 'horizontal' ? undefined : [
               {
                 scaleType: 'band',
                 data: chartData.xLabels,
                 label: config.xAxis,
+                categoryGapRatio: config.barOptions?.categoryGapRatio,
+                barGapRatio: config.barOptions?.barGapRatio,
               }
             ]}
-            yAxis={[
+            yAxis={config.barOptions?.layout === 'horizontal' ? [
+              {
+                scaleType: 'band',
+                data: chartData.xLabels,
+                label: config.xAxis,
+                categoryGapRatio: config.barOptions?.categoryGapRatio,
+                barGapRatio: config.barOptions?.barGapRatio,
+              }
+            ] : [
               {
                 label: config.yAxis,
               }
             ]}
-            series={[
-              {
-                data: chartData.data,
-                label: config.yAxis,
-                color: 'hsl(var(--primary))',
-              }
-            ]}
+            series={chartData.series.map((s, index) => ({
+              data: s.data,
+              label: config.barOptions?.showLegend ? s.label : undefined,
+              stack: s.stack,
+              color: `hsl(${200 + index * 40}, 70%, 50%)`, // Different colors for each series
+            }))}
+            layout={config.barOptions?.layout === 'horizontal' ? 'horizontal' : undefined}
+            barLabel={config.barOptions?.barLabel === 'value' ? 'value' : undefined}
+            grid={config.barOptions?.showGrid ? { vertical: true, horizontal: true } : undefined}
+            skipAnimation={config.barOptions?.skipAnimation}
             {...commonProps}
           />
         )
