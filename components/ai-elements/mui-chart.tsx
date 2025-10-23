@@ -107,9 +107,9 @@ export function MuiChart({ config, columns, rows, onEdit, onDelete }: MuiChartPr
     })
     const xLabels = Array.from(xValues)
 
-    // Handle different bar chart types
+    // Handle different chart types
     if (config.type === 'bar' && config.barOptions?.type === 'multi-series' && config.barOptions.series && config.barOptions.series.length > 0) {
-      // Multi-series: build data for each series
+      // Multi-series bar: build data for each series
       const series = config.barOptions.series.map(s => {
         const values = xLabels.map(label => {
           const row = rows.find(r => String(r[config.xAxis] ?? '') === label)
@@ -126,8 +126,49 @@ export function MuiChart({ config, columns, rows, onEdit, onDelete }: MuiChartPr
       })
       return { xLabels, data: [], series, pieData: [], scatterData: [] }
     } else if (config.type === 'bar' && config.barOptions?.type === 'stacked' && config.barOptions.stackGroups && config.barOptions.stackGroups.length > 0) {
-      // Stacked: build data for each stack group
+      // Stacked bar: build data for each stack group
       const series = config.barOptions.stackGroups.flatMap(group => 
+        group.series.map(seriesName => {
+          const values = xLabels.map(label => {
+            const row = rows.find(r => String(r[config.xAxis] ?? '') === label)
+            if (!row) return 0
+            const val = row[seriesName]
+            if (val == null) return 0
+            const num = typeof val === 'number' ? val : parseFloat(String(val))
+            return isNaN(num) ? 0 : num
+          })
+          return {
+            data: values,
+            label: seriesName,
+            stack: group.name
+          }
+        })
+      )
+      return { xLabels, data: [], series, pieData: [], scatterData: [] }
+    } else if (config.type === 'line' && config.lineOptions?.type === 'multi-series' && config.lineOptions.series && config.lineOptions.series.length > 0) {
+      // Multi-series line: build data for each series
+      const series = config.lineOptions.series.map(s => {
+        const values = xLabels.map(label => {
+          const row = rows.find(r => String(r[config.xAxis] ?? '') === label)
+          if (!row) return 0
+          const val = row[s.column]
+          if (val == null) return 0
+          const num = typeof val === 'number' ? val : parseFloat(String(val))
+          return isNaN(num) ? 0 : num
+        })
+        return {
+          data: values,
+          label: s.label || s.column,
+          area: s.area,
+          curve: s.curve,
+          showMark: s.showMark,
+          connectNulls: s.connectNulls
+        } as any
+      })
+      return { xLabels, data: [], series, pieData: [], scatterData: [] }
+    } else if (config.type === 'line' && config.lineOptions?.type === 'stacked' && config.lineOptions.stackGroups && config.lineOptions.stackGroups.length > 0) {
+      // Stacked line: build data for each stack group
+      const series = config.lineOptions.stackGroups.flatMap(group => 
         group.series.map(seriesName => {
           const values = xLabels.map(label => {
             const row = rows.find(r => String(r[config.xAxis] ?? '') === label)
@@ -316,13 +357,18 @@ export function MuiChart({ config, columns, rows, onEdit, onDelete }: MuiChartPr
                 label: config.yAxis,
               }
             ]}
-            series={[
-              {
-                data: chartData.data,
-                label: config.yAxis,
-                color: 'hsl(var(--primary))',
-              }
-            ]}
+            series={chartData.series.map((s, index) => ({
+              data: s.data,
+              label: config.lineOptions?.showLegend ? s.label : undefined,
+              stack: (s as any).stack,
+              area: (s as any).area,
+              curve: (s as any).curve,
+              showMark: (s as any).showMark,
+              connectNulls: (s as any).connectNulls,
+              color: `hsl(${200 + index * 40}, 70%, 50%)`, // Different colors for each series
+            }))}
+            grid={config.lineOptions?.showGrid ? { vertical: true, horizontal: true } : undefined}
+            skipAnimation={config.lineOptions?.skipAnimation}
             {...commonProps}
           />
         )

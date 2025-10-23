@@ -6,9 +6,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { BarChart3, LineChart, PieChart, Table, TrendingUp, Activity } from "lucide-react"
+import { BarChart3, LineChart as LineChartIcon, PieChart, Table, TrendingUp, Activity } from "lucide-react"
 import { DataTableColumn } from "./data-table"
 import { BarChart } from '@mui/x-charts/BarChart'
+import { LineChart } from '@mui/x-charts/LineChart'
 
 export type ChartType = "bar" | "line" | "pie" | "table" | "area" | "scatter"
 
@@ -38,6 +39,34 @@ export type BarChartOptions = {
   stackOrder?: "none" | "ascending" | "descending" | "insideOut" | "reverse"
 }
 
+export type LineChartType = "basic" | "multi-series" | "area" | "stacked"
+
+export type LineChartOptions = {
+  type: LineChartType
+  showLegend?: boolean
+  showGrid?: boolean
+  skipAnimation?: boolean
+  // Multi-series specific
+  series?: Array<{
+    column: string
+    label?: string
+    color?: string
+    area?: boolean
+    curve?: "linear" | "catmullRom" | "monotoneX" | "monotoneY" | "natural" | "step" | "stepBefore" | "stepAfter" | "bumpX" | "bumpY"
+    showMark?: boolean
+    connectNulls?: boolean
+  }>
+  // Stacked specific
+  stackGroups?: Array<{
+    name: string
+    series: string[]
+  }>
+  stackOffset?: "none" | "expand" | "wiggle" | "silhouette"
+  stackOrder?: "none" | "ascending" | "descending" | "insideOut" | "reverse"
+  // Area specific
+  baseline?: "min" | "max" | number
+}
+
 export type ChartConfig = {
   type: ChartType
   title: string
@@ -45,6 +74,7 @@ export type ChartConfig = {
   yAxis: string
   colorBy?: string
   barOptions?: BarChartOptions
+  lineOptions?: LineChartOptions
 }
 
 export type ChartCreationModalProps = {
@@ -60,7 +90,7 @@ export type ChartCreationModalProps = {
 
 const chartTypes = [
   { value: "bar", label: "Bar Chart", icon: BarChart3 },
-  { value: "line", label: "Line Chart", icon: LineChart },
+  { value: "line", label: "Line Chart", icon: LineChartIcon },
   { value: "pie", label: "Pie Chart", icon: PieChart },
   { value: "table", label: "Table", icon: Table },
   { value: "area", label: "Area Chart", icon: TrendingUp },
@@ -72,7 +102,7 @@ export function ChartCreationModal({
   onOpenChange, 
   columns, 
   rows, 
-  onChartCreate,
+  onChartCreate, 
   initialConfig,
   onChartUpdate
 }: ChartCreationModalProps) {
@@ -81,6 +111,9 @@ export function ChartCreationModal({
   const [xAxis, setXAxis] = React.useState(initialConfig?.xAxis || "")
   const [yAxis, setYAxis] = React.useState(initialConfig?.yAxis || "")
   const [colorBy, setColorBy] = React.useState(initialConfig?.colorBy || "none")
+  
+  // Track if we've initialized from initialConfig to prevent re-initialization
+  const hasInitializedRef = React.useRef(false)
   const [barOptions, setBarOptions] = React.useState<BarChartOptions>({
     type: initialConfig?.barOptions?.type || "basic",
     layout: initialConfig?.barOptions?.layout || "vertical",
@@ -96,9 +129,75 @@ export function ChartCreationModal({
     stackOrder: initialConfig?.barOptions?.stackOrder || "none",
   })
 
-  // Auto-populate fields when modal opens
+  const [lineOptions, setLineOptions] = React.useState<LineChartOptions>({
+    type: initialConfig?.lineOptions?.type || "basic",
+    showLegend: initialConfig?.lineOptions?.showLegend ?? false,
+    showGrid: initialConfig?.lineOptions?.showGrid ?? true,
+    skipAnimation: initialConfig?.lineOptions?.skipAnimation ?? false,
+    series: initialConfig?.lineOptions?.series || [],
+    stackGroups: initialConfig?.lineOptions?.stackGroups || [],
+    stackOffset: initialConfig?.lineOptions?.stackOffset || "none",
+    stackOrder: initialConfig?.lineOptions?.stackOrder || "none",
+    baseline: initialConfig?.lineOptions?.baseline || "min",
+  })
+
+  // Initialize from initialConfig when editing (only once per modal session)
   React.useEffect(() => {
-    if (open && columns.length > 0) {
+    if (open && initialConfig && !hasInitializedRef.current) {
+      setChartType(initialConfig.type)
+      setTitle(initialConfig.title)
+      setXAxis(initialConfig.xAxis)
+      setYAxis(initialConfig.yAxis)
+      setColorBy(initialConfig.colorBy || "none")
+      
+      // Set bar options if they exist
+      if (initialConfig.barOptions) {
+        setBarOptions({
+          type: initialConfig.barOptions.type || "basic",
+          layout: initialConfig.barOptions.layout || "vertical",
+          categoryGapRatio: initialConfig.barOptions.categoryGapRatio ?? 0.3,
+          barGapRatio: initialConfig.barOptions.barGapRatio ?? 0.1,
+          barLabel: initialConfig.barOptions.barLabel || "none",
+          showLegend: initialConfig.barOptions.showLegend ?? false,
+          showGrid: initialConfig.barOptions.showGrid ?? true,
+          skipAnimation: initialConfig.barOptions.skipAnimation ?? false,
+          series: initialConfig.barOptions.series || [],
+          stackGroups: initialConfig.barOptions.stackGroups || [],
+          stackOffset: initialConfig.barOptions.stackOffset || "none",
+          stackOrder: initialConfig.barOptions.stackOrder || "none",
+        })
+      }
+      
+      // Set line options if they exist
+      if (initialConfig.lineOptions) {
+        setLineOptions({
+          type: initialConfig.lineOptions.type || "basic",
+          showLegend: initialConfig.lineOptions.showLegend ?? false,
+          showGrid: initialConfig.lineOptions.showGrid ?? true,
+          skipAnimation: initialConfig.lineOptions.skipAnimation ?? false,
+          series: initialConfig.lineOptions.series || [],
+          stackGroups: initialConfig.lineOptions.stackGroups || [],
+          stackOffset: initialConfig.lineOptions.stackOffset || "none",
+          stackOrder: initialConfig.lineOptions.stackOrder || "none",
+          baseline: initialConfig.lineOptions.baseline || "min",
+        })
+      }
+      
+      // Mark as initialized
+      hasInitializedRef.current = true
+    }
+  }, [open, initialConfig])
+
+  // Reset initialization flag when modal closes
+  React.useEffect(() => {
+    if (!open) {
+      hasInitializedRef.current = false
+    }
+  }, [open])
+
+  // Auto-populate fields when modal opens (only for new charts, not when editing)
+  React.useEffect(() => {
+    if (open && columns.length > 0 && !initialConfig) {
       // Set default title
       if (!title) {
         setTitle(`Chart from ${columns.length} columns`)
@@ -124,7 +223,7 @@ export function ChartCreationModal({
         }
       }
     }
-  }, [open, columns, title, xAxis, yAxis])
+  }, [open, columns, title, xAxis, yAxis, initialConfig])
 
   const handleSave = () => {
     if (!chartType || !title || !xAxis) return
@@ -136,6 +235,7 @@ export function ChartCreationModal({
       yAxis: yAxis || xAxis,
       colorBy: colorBy && colorBy !== "none" ? colorBy : undefined,
       barOptions: chartType === 'bar' ? barOptions : undefined,
+      lineOptions: chartType === 'line' ? lineOptions : undefined,
     }
 
     if (initialConfig && onChartUpdate) {
@@ -163,8 +263,8 @@ export function ChartCreationModal({
   const selectedChartType = chartTypes.find(ct => ct.value === chartType)
   const IconComponent = selectedChartType?.icon || BarChart3
 
-  // Build preview dataset for bar chart
-  const previewBar = React.useMemo(() => {
+  // Build preview dataset for charts
+  const previewData = React.useMemo(() => {
     if (!xAxis || rows.length === 0) return { labels: [], series: [] }
     
     // Get unique x-axis values
@@ -175,9 +275,9 @@ export function ChartCreationModal({
     })
     const labels = Array.from(xValues).slice(0, 15)
     
-    // Handle different bar chart types
+    // Handle different chart types
     if (chartType === 'bar' && barOptions.type === 'multi-series' && barOptions.series && barOptions.series.length > 0) {
-      // Multi-series: build data for each series
+      // Multi-series bar: build data for each series
       const series = barOptions.series.map(s => {
         const values = labels.map(label => {
           const row = rows.find(r => String(r[xAxis] ?? '') === label)
@@ -194,8 +294,49 @@ export function ChartCreationModal({
       })
       return { labels, series }
     } else if (chartType === 'bar' && barOptions.type === 'stacked' && barOptions.stackGroups && barOptions.stackGroups.length > 0) {
-      // Stacked: build data for each stack group
+      // Stacked bar: build data for each stack group
       const series = barOptions.stackGroups.flatMap(group => 
+        group.series.map(seriesName => {
+          const values = labels.map(label => {
+            const row = rows.find(r => String(r[xAxis] ?? '') === label)
+            if (!row) return 0
+            const val = row[seriesName]
+            if (val == null) return 0
+            const num = typeof val === 'number' ? val : parseFloat(String(val))
+            return isNaN(num) ? 0 : num
+          })
+          return {
+            data: values,
+            label: seriesName,
+            stack: group.name
+          }
+        })
+      )
+      return { labels, series }
+    } else if (chartType === 'line' && lineOptions.type === 'multi-series' && lineOptions.series && lineOptions.series.length > 0) {
+      // Multi-series line: build data for each series
+      const series = lineOptions.series.map(s => {
+        const values = labels.map(label => {
+          const row = rows.find(r => String(r[xAxis] ?? '') === label)
+          if (!row) return 0
+          const val = row[s.column]
+          if (val == null) return 0
+          const num = typeof val === 'number' ? val : parseFloat(String(val))
+          return isNaN(num) ? 0 : num
+        })
+        return {
+          data: values,
+          label: s.label || s.column,
+          area: s.area,
+          curve: s.curve,
+          showMark: s.showMark,
+          connectNulls: s.connectNulls
+        } as any
+      })
+      return { labels, series }
+    } else if (chartType === 'line' && lineOptions.type === 'stacked' && lineOptions.stackGroups && lineOptions.stackGroups.length > 0) {
+      // Stacked line: build data for each stack group
+      const series = lineOptions.stackGroups.flatMap(group => 
         group.series.map(seriesName => {
           const values = labels.map(label => {
             const row = rows.find(r => String(r[xAxis] ?? '') === label)
@@ -227,7 +368,7 @@ export function ChartCreationModal({
       const values = labels.map(label => map.get(label) || 0)
       return { labels, series: [{ data: values, label: yAxis }] }
     }
-  }, [rows, xAxis, yAxis, chartType, barOptions])
+  }, [rows, xAxis, yAxis, chartType, barOptions, lineOptions])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -315,8 +456,26 @@ export function ChartCreationModal({
               </Select>
             </div>
 
-            {/* Y-Axis Selection (for charts that need it, but not for multi-series bar charts) */}
-            {chartType !== "pie" && chartType !== "table" && !(chartType === "bar" && barOptions.type === "multi-series") && (
+            {/* Line Chart Type Selection */}
+            {chartType === 'line' && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium block">Line Chart Type</Label>
+                <Select value={lineOptions.type} onValueChange={(v: LineChartType) => setLineOptions(o => ({...o, type: v}))}>
+                  <SelectTrigger className="w-full max-w-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="basic">Basic (Single Series)</SelectItem>
+                    <SelectItem value="multi-series">Multi-Series</SelectItem>
+                    <SelectItem value="area">Area Chart</SelectItem>
+                    <SelectItem value="stacked">Stacked</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Y-Axis Selection (for charts that need it, but not for multi-series bar/line charts) */}
+            {chartType !== "pie" && chartType !== "table" && !(chartType === "bar" && barOptions.type === "multi-series") && !(chartType === "line" && lineOptions.type === "multi-series") && (
               <div className="space-y-2">
                 <Label htmlFor="y-axis" className="text-sm font-medium">Y-Axis</Label>
                 <Select value={yAxis} onValueChange={setYAxis}>
@@ -656,6 +815,344 @@ export function ChartCreationModal({
                 </div>
               </div>
             )}
+
+            {/* Line chart advanced options */}
+            {chartType === 'line' && (
+              <div className="space-y-6 pt-2">
+
+                {/* Multi-Series Configuration */}
+                {lineOptions.type === 'multi-series' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Series</Label>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => setLineOptions(o => ({
+                          ...o, 
+                          series: [...(o.series || []), { 
+                            column: yAxis || numericColumns[0]?.name || '', 
+                            label: '',
+                            area: false,
+                            curve: 'linear',
+                            showMark: true,
+                            connectNulls: false
+                          }]
+                        }))}
+                      >
+                        Add Series
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {(lineOptions.series || []).map((s, idx) => (
+                        <div key={idx} className="space-y-2 p-3 border rounded">
+                          <div className="grid grid-cols-2 gap-2">
+                            <Select value={s.column} onValueChange={(val) => setLineOptions(o => ({
+                              ...o,
+                              series: o.series?.map((item, i) => i === idx ? { ...item, column: val } : item) || []
+                            }))}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {numericColumns.map((col) => (
+                                  <SelectItem key={col.name} value={col.name}>
+                                    {col.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              placeholder="Label (optional)"
+                              value={s.label || ''}
+                              onChange={(e) => setLineOptions(o => ({
+                                ...o,
+                                series: o.series?.map((item, i) => i === idx ? { ...item, label: e.target.value } : item) || []
+                              }))}
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Curve</Label>
+                              <Select value={s.curve || 'linear'} onValueChange={(val: "linear" | "catmullRom" | "monotoneX" | "monotoneY" | "natural" | "step" | "stepBefore" | "stepAfter" | "bumpX" | "bumpY") => setLineOptions(o => ({
+                                ...o,
+                                series: o.series?.map((item, i) => i === idx ? { ...item, curve: val } : item) || []
+                              }))}>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="linear">Linear</SelectItem>
+                                  <SelectItem value="catmullRom">Catmull-Rom</SelectItem>
+                                  <SelectItem value="monotoneX">Monotone X</SelectItem>
+                                  <SelectItem value="monotoneY">Monotone Y</SelectItem>
+                                  <SelectItem value="natural">Natural</SelectItem>
+                                  <SelectItem value="step">Step</SelectItem>
+                                  <SelectItem value="stepBefore">Step Before</SelectItem>
+                                  <SelectItem value="stepAfter">Step After</SelectItem>
+                                  <SelectItem value="bumpX">Bump X</SelectItem>
+                                  <SelectItem value="bumpY">Bump Y</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Show Mark</Label>
+                              <Select value={(s.showMark ? 'on' : 'off') as 'on' | 'off'} onValueChange={(v: 'on' | 'off') => setLineOptions(o => ({
+                                ...o,
+                                series: o.series?.map((item, i) => i === idx ? { ...item, showMark: v === 'on' } : item) || []
+                              }))}>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="on">On</SelectItem>
+                                  <SelectItem value="off">Off</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={s.area || false}
+                                  onChange={(e) => setLineOptions(o => ({
+                                    ...o,
+                                    series: o.series?.map((item, i) => i === idx ? { ...item, area: e.target.checked } : item) || []
+                                  }))}
+                                />
+                                <Label className="text-xs">Area</Label>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={s.connectNulls || false}
+                                  onChange={(e) => setLineOptions(o => ({
+                                    ...o,
+                                    series: o.series?.map((item, i) => i === idx ? { ...item, connectNulls: e.target.checked } : item) || []
+                                  }))}
+                                />
+                                <Label className="text-xs">Connect Nulls</Label>
+                              </div>
+                            </div>
+                            <Button 
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setLineOptions(o => ({
+                                ...o,
+                                series: o.series?.filter((_, i) => i !== idx) || []
+                              }))}
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            >
+                              ×
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Area Chart Configuration */}
+                {lineOptions.type === 'area' && (
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium block">Baseline</Label>
+                      <Select value={String(lineOptions.baseline || 'min')} onValueChange={(v: string) => {
+                        const baseline = v === 'min' ? 'min' : v === 'max' ? 'max' : Number(v)
+                        setLineOptions(o => ({...o, baseline}))
+                      }}>
+                        <SelectTrigger className="w-full max-w-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="min">Min</SelectItem>
+                          <SelectItem value="max">Max</SelectItem>
+                          <SelectItem value="0">Zero (0)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
+                {/* Stacked Configuration */}
+                {lineOptions.type === 'stacked' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Stack Groups</Label>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => setLineOptions(o => ({
+                          ...o, 
+                          stackGroups: [...(o.stackGroups || []), { name: `Group ${(o.stackGroups?.length || 0) + 1}`, series: [] }]
+                        }))}
+                      >
+                        Add Group
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {(lineOptions.stackGroups || []).map((group, groupIdx) => (
+                        <div key={groupIdx} className="space-y-2 p-3 border rounded">
+                          <div className="flex items-center gap-2">
+                            <Input
+                              placeholder="Group name"
+                              value={group.name}
+                              onChange={(e) => setLineOptions(o => ({
+                                ...o,
+                                stackGroups: o.stackGroups?.map((g, i) => i === groupIdx ? { ...g, name: e.target.value } : g) || []
+                              }))}
+                              className="flex-1"
+                            />
+                            <Button 
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setLineOptions(o => ({
+                                ...o,
+                                stackGroups: o.stackGroups?.filter((_, i) => i !== groupIdx) || []
+                              }))}
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            >
+                              ×
+                            </Button>
+                          </div>
+                          <div className="space-y-1">
+                            {group.series.map((seriesName, seriesIdx) => (
+                              <div key={seriesIdx} className="flex items-center gap-2">
+                                <Select value={seriesName} onValueChange={(val) => setLineOptions(o => ({
+                                  ...o,
+                                  stackGroups: o.stackGroups?.map((g, i) => i === groupIdx ? {
+                                    ...g,
+                                    series: g.series.map((s, j) => j === seriesIdx ? val : s)
+                                  } : g) || []
+                                }))}>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {numericColumns.map((col) => (
+                                      <SelectItem key={col.name} value={col.name}>
+                                        {col.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Button 
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setLineOptions(o => ({
+                                    ...o,
+                                    stackGroups: o.stackGroups?.map((g, i) => i === groupIdx ? {
+                                      ...g,
+                                      series: g.series.filter((_, j) => j !== seriesIdx)
+                                    } : g) || []
+                                  }))}
+                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                >
+                                  ×
+                                </Button>
+                              </div>
+                            ))}
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => setLineOptions(o => ({
+                                ...o,
+                                stackGroups: o.stackGroups?.map((g, i) => i === groupIdx ? {
+                                  ...g,
+                                  series: [...g.series, numericColumns[0]?.name || '']
+                                } : g) || []
+                              }))}
+                            >
+                              Add Series
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Stack Offset</Label>
+                        <Select value={lineOptions.stackOffset || 'none'} onValueChange={(v: "none" | "expand" | "wiggle" | "silhouette") => setLineOptions(o => ({...o, stackOffset: v}))}>
+                          <SelectTrigger className="w-full max-w-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            <SelectItem value="expand">Expand</SelectItem>
+                            <SelectItem value="wiggle">Wiggle</SelectItem>
+                            <SelectItem value="silhouette">Silhouette</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Stack Order</Label>
+                        <Select value={lineOptions.stackOrder || 'none'} onValueChange={(v: "none" | "ascending" | "descending" | "insideOut" | "reverse") => setLineOptions(o => ({...o, stackOrder: v}))}>
+                          <SelectTrigger className="w-full max-w-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            <SelectItem value="ascending">Ascending</SelectItem>
+                            <SelectItem value="descending">Descending</SelectItem>
+                            <SelectItem value="insideOut">Inside Out</SelectItem>
+                            <SelectItem value="reverse">Reverse</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Common Options */}
+                <div className="space-y-4 border-t pt-4">
+                  <h4 className="text-sm font-medium text-muted-foreground">Common Options</h4>
+                  
+                  {/* Legend */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium block">Legend</Label>
+                    <Select value={(lineOptions.showLegend ? 'on' : 'off') as 'on' | 'off'} onValueChange={(v: 'on' | 'off') => setLineOptions(o => ({...o, showLegend: v === 'on'}))}>
+                      <SelectTrigger className="w-full max-w-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="on">On</SelectItem>
+                        <SelectItem value="off">Off</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Grid */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium block">Grid</Label>
+                    <Select value={(lineOptions.showGrid ? 'on' : 'off') as 'on' | 'off'} onValueChange={(v: 'on' | 'off') => setLineOptions(o => ({...o, showGrid: v === 'on'}))}>
+                      <SelectTrigger className="w-full max-w-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="on">On</SelectItem>
+                        <SelectItem value="off">Off</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Animation */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium block">Animation</Label>
+                    <Select value={(lineOptions.skipAnimation ? 'off' : 'on') as 'on' | 'off'} onValueChange={(v: 'on' | 'off') => setLineOptions(o => ({...o, skipAnimation: v === 'off'}))}>
+                      <SelectTrigger className="w-full max-w-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="on">On</SelectItem>
+                        <SelectItem value="off">Off</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Right side - Live Preview */}
@@ -668,19 +1165,19 @@ export function ChartCreationModal({
                     <BarChart
                       xAxis={barOptions.layout === 'horizontal' ? undefined : [{
                         scaleType: 'band',
-                        data: previewBar.labels,
+                        data: previewData.labels,
                         categoryGapRatio: barOptions.categoryGapRatio,
                         barGapRatio: barOptions.barGapRatio,
                         label: xAxis,
                       }]}
                       yAxis={barOptions.layout === 'horizontal' ? [{
                         scaleType: 'band',
-                        data: previewBar.labels,
+                        data: previewData.labels,
                         categoryGapRatio: barOptions.categoryGapRatio,
                         barGapRatio: barOptions.barGapRatio,
                         label: xAxis,
                       }] : [{ label: yAxis }]}
-                      series={previewBar.series.map((s, index) => ({
+                      series={previewData.series.map((s, index) => ({
                         data: s.data,
                         label: barOptions.showLegend ? s.label : undefined,
                         stack: s.stack,
@@ -694,8 +1191,33 @@ export function ChartCreationModal({
                       skipAnimation={barOptions.skipAnimation}
                     />
                   </div>
+                ) : chartType === 'line' ? (
+                  <div className="w-full h-[320px]">
+                    <LineChart
+                      xAxis={[{
+                        scaleType: 'band',
+                        data: previewData.labels,
+                        label: xAxis,
+                      }]}
+                      yAxis={[{ label: yAxis }]}
+                      series={previewData.series.map((s, index) => ({
+                        data: s.data,
+                        label: lineOptions.showLegend ? s.label : undefined,
+                        stack: (s as any).stack,
+                        area: (s as any).area,
+                        curve: (s as any).curve,
+                        showMark: (s as any).showMark,
+                        connectNulls: (s as any).connectNulls,
+                        color: `hsl(${200 + index * 40}, 70%, 50%)`, // Different colors for each series
+                      }))}
+                      height={300}
+                      margin={{ left: 20, right: 20, top: 10, bottom: 50 }}
+                      grid={lineOptions.showGrid ? { vertical: true, horizontal: true } : undefined}
+                      skipAnimation={lineOptions.skipAnimation}
+                    />
+                  </div>
                 ) : (
-                  <div className="text-sm text-muted-foreground">Select Bar to see live preview. Other chart previews will be added next.</div>
+                  <div className="text-sm text-muted-foreground">Select Bar or Line to see live preview. Other chart previews will be added next.</div>
                 )}
                 <div className="mt-3 text-xs text-muted-foreground">
                   <div>Rows: {rows.length} · Columns: {columns.length}</div>

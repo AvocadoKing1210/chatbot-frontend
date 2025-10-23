@@ -166,7 +166,18 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
   
   // Store created charts
   const [createdCharts, setCreatedCharts] = React.useState<Array<{ id: string; config: ChartConfig }>>([])
-  const [editingChart, setEditingChart] = React.useState<{ id: string; config: ChartConfig } | null>(null)
+  
+  // Persist editing chart state to survive component unmounting/remounting
+  const [editingChart, setEditingChart] = React.useState<{ id: string; config: ChartConfig } | null>(() => {
+    if (typeof window === "undefined") return null
+    try {
+      const key = `editingChart_${codeHash}`
+      const stored = localStorage.getItem(key)
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
+    }
+  })
   
   // Save modal state to localStorage whenever it changes
   React.useEffect(() => {
@@ -178,6 +189,22 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
       // Ignore localStorage errors
     }
   }, [chartModalOpen, codeHash])
+
+  // Save editing chart state to localStorage whenever it changes
+  React.useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      if (editingChart) {
+        const key = `editingChart_${codeHash}`
+        localStorage.setItem(key, JSON.stringify(editingChart))
+      } else {
+        const key = `editingChart_${codeHash}`
+        localStorage.removeItem(key)
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [editingChart, codeHash])
   
   // Track if this is the initial page load (not a component re-render)
   const isInitialLoadRef = React.useRef(true)
@@ -249,8 +276,23 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
   }, [])
 
   const beginEditChart = React.useCallback((chartId: string) => {
-    const chart = createdCharts.find(c => c.id === chartId)
-    if (!chart) return
+    // First try to find in current createdCharts
+    let chart = createdCharts.find(c => c.id === chartId)
+    
+    // If not found, try to find in localStorage
+    if (!chart) {
+      const charts = loadCharts()
+      const storedChart = charts.find(c => c.id === chartId)
+      if (storedChart) {
+        chart = { id: storedChart.id, config: storedChart.config }
+      }
+    }
+    
+    if (!chart) {
+      console.error(`Chart with id ${chartId} not found`)
+      return
+    }
+    
     setEditingChart(chart)
     setChartModalOpen(true)
   }, [createdCharts])
