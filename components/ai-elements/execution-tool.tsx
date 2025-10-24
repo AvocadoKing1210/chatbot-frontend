@@ -560,17 +560,37 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
     console.log(`[ExecutionTool] shouldExecute effect: shouldExecute=${shouldExecute}, execState=${execState}, hasExecuted=${hasExecutedRef.current}`)
     execTrace("ExecutionTool shouldExecute effect", { codeHash, shouldExecute, execState, hasExecuted: hasExecutedRef.current })
 
-    if (shouldExecute && !hasExecutedRef.current) {
-      console.log(`[ExecutionTool] Starting query execution`)
-      execTrace("ExecutionTool starting execution", { codeHash })
-      hasExecutedRef.current = true
-      // Safety: clear charts on re-run
-      try {
-        clearChartsForCodeHash(codeHash)
-      } catch {}
-      setCreatedCharts([])
-      void handleExecute()
+    if (!shouldExecute || hasExecutedRef.current) {
+      // Nothing to do
+      return
     }
+
+    // If we already have a fresh cached result, prefer reusing it and skip auto-run
+    if (hydratedEntry && isCacheFresh) {
+      hasExecutedRef.current = true
+      // Ensure state reflects cached entry (guard in case initializers didn't set)
+      if (columns.length === 0 && rows.length === 0) {
+        setColumns(hydratedEntry.columns)
+        setRows(hydratedEntry.rows)
+        setMeta(hydratedEntry.meta)
+        setQueryId(hydratedEntry.id)
+      }
+      setExecError(undefined)
+      setExecState("success")
+      execTrace("ExecutionTool reused fresh cache; skipped auto-run", { codeHash })
+      return
+    }
+
+    // Otherwise, perform execution once
+    console.log(`[ExecutionTool] Starting query execution`)
+    execTrace("ExecutionTool starting execution", { codeHash })
+    hasExecutedRef.current = true
+    // Safety: clear charts on re-run
+    try {
+      clearChartsForCodeHash(codeHash)
+    } catch {}
+    setCreatedCharts([])
+    void handleExecute()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldExecute])
 
