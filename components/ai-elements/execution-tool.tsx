@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { execTrace, execTraceGroupStart, execTraceGroupEnd, execMark } from "@/lib/trace"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tool, ToolContent, ToolInput, ToolOutput } from "./tool"
@@ -150,9 +151,31 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
   const [rows, setRows] = React.useState<Array<Record<string, unknown>>>([])
   const [meta, setMeta] = React.useState<{ full: boolean; effectiveLimit: number; wasClamped: boolean } | undefined>()
   const [queryId, setQueryId] = React.useState<number | undefined>()
-  const [userOpened, setUserOpened] = React.useState<boolean>(shouldExecute)
   const codeHash = React.useMemo(() => hashCode(`${mode}:${code}`), [mode, code])
+  const [userOpened, setUserOpened] = React.useState<boolean>(() => {
+    if (typeof window === "undefined") return shouldExecute
+    try {
+      const stored = localStorage.getItem(`execOpen_${codeHash}`)
+      if (stored === 'true') return true
+      if (stored === 'false') return false
+    } catch {}
+    return shouldExecute
+  })
   
+  // Trace mount/unmount
+  React.useEffect(() => {
+    execTrace("ExecutionTool mount", { codeHash, mode })
+    return () => execTrace("ExecutionTool unmount", { codeHash, mode })
+  }, [codeHash, mode])
+
+  // Persist open state
+  React.useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      localStorage.setItem(`execOpen_${codeHash}`, String(userOpened))
+    } catch {}
+  }, [userOpened, codeHash])
+
   // Persist modal state to survive component unmounting/remounting
   const [chartModalOpen, setChartModalOpen] = React.useState(() => {
     if (typeof window === "undefined") return false
@@ -164,8 +187,46 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
     }
   })
   
-  // Store created charts
-  const [createdCharts, setCreatedCharts] = React.useState<Array<{ id: string; config: ChartConfig }>>([])
+  // Preload any prior execution synchronously to avoid flicker
+  const hydrated = React.useMemo(() => {
+    const history = loadHistory()
+    const entry = history.find((h) => h.codeHash === codeHash && h.mode === mode)
+    if (entry) {
+      return {
+        columns: entry.columns,
+        rows: entry.rows,
+        meta: entry.meta,
+        queryId: entry.id,
+        execState: "success" as const,
+      }
+    }
+    return null
+  }, [codeHash, mode])
+
+  React.useEffect(() => {
+    if (hydrated) {
+      setColumns(hydrated.columns)
+      setRows(hydrated.rows)
+      setMeta(hydrated.meta)
+      setQueryId(hydrated.queryId)
+      setExecState("success")
+      execTrace("ExecutionTool prehydrated from history", { codeHash, rows: hydrated.rows?.length ?? 0 })
+    } else {
+      setColumns([])
+      setRows([])
+      setMeta(undefined)
+      setQueryId(undefined)
+      setExecState("idle")
+    }
+    // userOpened remains false unless user executes
+  }, [codeHash, mode, hydrated])
+
+  // Store created charts (preload synchronously to avoid flicker)
+  const [createdCharts, setCreatedCharts] = React.useState<Array<{ id: string; config: ChartConfig }>>(() => {
+    const charts = loadCharts()
+    const chartsForThisCode = charts.filter(chart => chart.codeHash === hashCode(`${mode}:${code}`))
+    return chartsForThisCode.map(c => ({ id: c.id, config: c.config }))
+  })
   
   // Persist editing chart state to survive component unmounting/remounting
   const [editingChart, setEditingChart] = React.useState<{ id: string; config: ChartConfig } | null>(() => {
@@ -208,9 +269,6 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
   
   // Track if this is the initial page load (not a component re-render)
   const isInitialLoadRef = React.useRef(true)
-  
-  // Track if charts have been loaded for current codeHash to prevent multiple loads
-  const chartsLoadedRef = React.useRef<string | null>(null)
   
 
   const handleDownloadCSV = React.useCallback(() => {
@@ -311,12 +369,14 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
   }, [editingChart])
 
   const handleExecute = async () => {
+    execTraceGroupStart(`ExecutionTool handleExecute ${codeHash}`, { mode })
     console.log(`[ExecutionTool] handleExecute called for codeHash: ${codeHash}`)
     setUserOpened(true)
     setExecState("running")
     setExecError(undefined)
     try {
       const startedAt = performance.now()
+      execMark(`exec:start:${codeHash}`)
       console.groupCollapsed(`[Execution] ${mode.toUpperCase()} run`)
       const codePreview = code.length > 120 ? `${code.slice(0, 120)}…` : code
       console.log("codeHash:", codeHash)
@@ -369,6 +429,7 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
       console.log("meta:", result.meta)
       console.log("queryId:", result.query_id)
       console.log("durationMs:", Math.round(performance.now() - startedAt))
+      execTrace("ExecutionTool result", { codeHash, rows: (result.data || []).length, cols: (result.columns || []).length, durationMs: Math.round(performance.now() - startedAt) })
       // Save history
       const history = loadHistory()
       const entry: StoredExecution = {
@@ -387,9 +448,11 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
       setExecError((e as Error).message)
       setExecState("error")
       console.error("status:", "error", "message:", (e as Error).message)
+      execTrace("ExecutionTool error", { codeHash, message: (e as Error).message })
     } finally {
       console.groupEnd()
       onComplete?.()
+      execTraceGroupEnd()
     }
   }
 
@@ -401,68 +464,43 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
     hasExecutedRef.current = false
   }, [codeHash])
 
-  // Clear charts when code changes (they will be reloaded from localStorage if they exist)
+  // Refresh charts when code changes (synchronously from storage)
   React.useEffect(() => {
-    setCreatedCharts([])
-    chartsLoadedRef.current = null // Reset the loaded flag when code changes
-  }, [codeHash])
-
-  // Load charts from localStorage whenever codeHash changes or component mounts
-  React.useEffect(() => {
-    // Only load charts if we haven't already loaded them for this codeHash
-    if (chartsLoadedRef.current === codeHash) {
-      return
-    }
-    
     const charts = loadCharts()
     const chartsForThisCode = charts.filter(chart => chart.codeHash === codeHash)
-    if (chartsForThisCode.length > 0) {
-      const chartConfigs = chartsForThisCode.map(chart => ({ id: chart.id, config: chart.config }))
-      setCreatedCharts(chartConfigs)
-      console.log(`Loaded ${chartsForThisCode.length} charts for codeHash: ${codeHash}`)
-    }
-    
-    // Mark charts as loaded for this codeHash
-    chartsLoadedRef.current = codeHash
+    setCreatedCharts(chartsForThisCode.map(c => ({ id: c.id, config: c.config })))
+    execTrace("ExecutionTool codeHash changed; loaded charts", { codeHash, count: chartsForThisCode.length })
   }, [codeHash])
 
-  // Execute query when shouldExecute is true and we haven't executed yet
+  // removed separate charts load effect; handled above
+
+  // Execute query when shouldExecute is true and we haven't executed on this signal
   React.useEffect(() => {
     console.log(`[ExecutionTool] shouldExecute effect: shouldExecute=${shouldExecute}, execState=${execState}, hasExecuted=${hasExecutedRef.current}`)
-    
-    if (shouldExecute && execState === "idle" && !hasExecutedRef.current) {
+    execTrace("ExecutionTool shouldExecute effect", { codeHash, shouldExecute, execState, hasExecuted: hasExecutedRef.current })
+
+    if (shouldExecute && !hasExecutedRef.current) {
       console.log(`[ExecutionTool] Starting query execution`)
+      execTrace("ExecutionTool starting execution", { codeHash })
       hasExecutedRef.current = true
+      // Safety: clear charts on re-run
+      try {
+        clearChartsForCodeHash(codeHash)
+      } catch {}
+      setCreatedCharts([])
       void handleExecute()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldExecute])
 
-  // Load from history ONLY on initial page load, not on component re-renders
+  // Reset guard when signal goes low to allow subsequent runs
   React.useEffect(() => {
-    if (!isInitialLoadRef.current) {
-      return
+    if (!shouldExecute) {
+      hasExecutedRef.current = false
     }
-    
-    if (execState !== "idle") {
-      return
-    }
-    
-    const history = loadHistory()
-    const entry = history.find((h) => h.codeHash === codeHash && h.mode === mode)
-    
-    if (entry) {
-      setColumns(entry.columns)
-      setRows(entry.rows)
-      setMeta(entry.meta)
-      setQueryId(entry.id)
-      setExecState("success")
-      // keep folded: userOpened remains false
-    }
-    
-    // Mark that initial load is complete
-    isInitialLoadRef.current = false
-  }, [codeHash, mode, execState])
+  }, [shouldExecute])
+
+  // No post-mount history hydration; handled synchronously in state init
 
   const toolState =
     execState === "idle"
@@ -475,7 +513,7 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
 
   return (
     <div className={cn("not-prose", className)} {...props}>
-      <Collapsible defaultOpen={userOpened} className="not-prose mb-4 w-full rounded-md border">
+      <Collapsible open={userOpened} onOpenChange={setUserOpened} className="not-prose mb-4 w-full rounded-md border">
         <div className="group flex w-full items-center justify-between gap-4 p-3">
           <CollapsibleTrigger className="flex items-center gap-2 flex-1">
             <Play className="size-4 text-muted-foreground" />

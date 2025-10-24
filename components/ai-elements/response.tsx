@@ -9,10 +9,175 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { Button } from "@/components/ui/button";
 import { Download, Play, Loader2 } from "lucide-react";
 import { ExecutionTool } from "./execution-tool";
+import { execTrace } from "@/lib/trace";
 
 type ResponseProps = ComponentProps<typeof Streamdown> & {
   chartEnabled?: boolean;
 };
+
+function computeCodeHash(mode: string, codeContent: string): string {
+  let h = 2166136261
+  const s = `${mode}:${codeContent}`
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)
+  }
+  return (h >>> 0).toString(16)
+}
+
+type HoistedCodeWithActionsProps = {
+  language: string
+  codeContent: string
+  filename?: string
+  chartEnabled?: boolean
+  codeBlockProps?: Record<string, unknown>
+}
+
+const HoistedCodeWithActions: React.FC<HoistedCodeWithActionsProps> = memo(({ language, codeContent, filename, chartEnabled, codeBlockProps }) => {
+  const mode = language.toLowerCase().startsWith('py') ? 'python' : language.toLowerCase().startsWith('sql') ? 'sql' : 'sql'
+  const [showExec, setShowExec] = useState(() => {
+    return Boolean((() => {
+      try {
+        const raw = typeof window !== 'undefined' ? localStorage.getItem('exec_history_v1') : null
+        if (!raw) return false
+        const arr = JSON.parse(raw) as Array<{ codeHash: string; mode: string }>
+        const hash = computeCodeHash(mode, codeContent)
+        return arr.some(e => e.codeHash === hash && e.mode === mode)
+      } catch {
+        return false
+      }
+    })())
+  })
+  const [isExecuting, setIsExecuting] = useState(false)
+
+  React.useEffect(() => {
+    execTrace("Response.CodeWithActions mount", { mode, codeHashPreview: `${mode}:${String(codeContent).slice(0, 32)}` })
+    return () => execTrace("Response.CodeWithActions unmount", { mode })
+  }, [mode, codeContent])
+
+  return (
+    <div className="space-y-3">
+      <CodeBlock 
+        code={codeContent}
+        language={language}
+        filename={filename}
+        showLineNumbers={true}
+        {...(codeBlockProps || {})}
+      >
+        <CodeBlockCopyButton iconOnly />
+        {mode === 'sql' && (
+        <button
+          className="flex h-8 w-8 items-center justify-center rounded-md text-gray-600 transition-all hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => {
+            setShowExec(true)
+            setIsExecuting(true)
+          }}
+          disabled={isExecuting}
+          aria-label={isExecuting ? "Executing..." : "Execute"}
+          title={isExecuting ? "Executing..." : "Execute"}
+        >
+          {isExecuting ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Play size={14} />
+          )}
+        </button>
+        )}
+      </CodeBlock>
+      {showExec && (
+        <>
+          <ExecutionTool 
+            key={computeCodeHash(mode, codeContent)}
+            mode={mode as 'sql' | 'python'} 
+            code={codeContent} 
+            shouldExecute={isExecuting}
+            onSuccess={() => {
+              setIsExecuting(false)
+              // charts managed inside ExecutionTool now
+            }}
+            onComplete={() => setIsExecuting(false)}
+          />
+        </>
+      )}
+    </div>
+  )
+})
+
+HoistedCodeWithActions.displayName = "HoistedCodeWithActions"
+
+type TableWithActionsProps = React.HTMLAttributes<HTMLDivElement> & {
+  tableProps?: React.TableHTMLAttributes<HTMLTableElement>
+  children: React.ReactNode
+}
+
+const TableWithActions: React.FC<TableWithActionsProps> = memo(({ tableProps, children }) => {
+  const ref = React.useRef<HTMLTableElement | null>(null);
+  const [csv, setCsv] = React.useState<string>("");
+
+  function tableToCsv(table: HTMLTableElement): string {
+    const rows = Array.from(table.querySelectorAll("tr"));
+    const csvRows = rows.map((row) => {
+      const cells = Array.from(row.querySelectorAll("th,td"));
+      const values = cells.map((cell) => {
+        const text = (cell.textContent || "").trim();
+        const needsQuotes = /[",\n]/.test(text);
+        const escaped = text.replace(/"/g, '""');
+        return needsQuotes ? `"${escaped}"` : escaped;
+      });
+      return values.join(",");
+    });
+    return csvRows.join("\n");
+  }
+
+  React.useEffect(() => {
+    if (!ref.current) return;
+    setCsv(tableToCsv(ref.current));
+  }, []);
+
+  const handleDownload = () => {
+    if (!ref.current) return;
+    const data = tableToCsv(ref.current);
+    const blob = new Blob([data], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "table.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="my-2">
+      <div className="mb-1 flex items-center justify-end gap-1">
+        <CopyButton text={csv} tooltip="Copy table (CSV)" />
+        <Button
+          size="sm"
+          variant="ghost"
+          className="relative size-9 p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+          onClick={handleDownload}
+          title="Download CSV"
+          aria-label="Download CSV"
+        >
+          <Download className="h-4 w-4" />
+          <span className="sr-only">Download CSV</span>
+        </Button>
+      </div>
+      <div className="overflow-x-auto">
+        <table
+          ref={ref}
+          className="w-full border-collapse border border-border rounded-lg overflow-hidden"
+          {...tableProps}
+        >
+          {children}
+        </table>
+      </div>
+    </div>
+  );
+})
+
+TableWithActions.displayName = "TableWithActions"
 
 export const Response = memo(
   ({ className, chartEnabled, ...props }: ResponseProps) => (
@@ -21,76 +186,9 @@ export const Response = memo(
         "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
         className
       )}
-      components={{
+      components={React.useMemo(() => ({
         table: ({ children, ...props }) => {
-          function tableToCsv(table: HTMLTableElement): string {
-            const rows = Array.from(table.querySelectorAll("tr"));
-            const csvRows = rows.map((row) => {
-              const cells = Array.from(row.querySelectorAll("th,td"));
-              const values = cells.map((cell) => {
-                const text = (cell.textContent || "").trim();
-                const needsQuotes = /[",\n]/.test(text);
-                const escaped = text.replace(/"/g, '""');
-                return needsQuotes ? `"${escaped}"` : escaped;
-              });
-              return values.join(",");
-            });
-            return csvRows.join("\n");
-          }
-
-          const TableWithActions = () => {
-            const ref = React.useRef<HTMLTableElement | null>(null);
-            const [csv, setCsv] = React.useState<string>("");
-
-            React.useEffect(() => {
-              if (!ref.current) return;
-              setCsv(tableToCsv(ref.current));
-            }, []);
-
-            const handleDownload = () => {
-              if (!ref.current) return;
-              const data = tableToCsv(ref.current);
-              const blob = new Blob([data], { type: "text/csv;charset=utf-8;" });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = "table.csv";
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-              URL.revokeObjectURL(url);
-            };
-
-            return (
-              <div className="my-2">
-                <div className="mb-1 flex items-center justify-end gap-1">
-                  <CopyButton text={csv} tooltip="Copy table (CSV)" />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="relative size-9 p-1.5 text-muted-foreground transition-colors hover:text-foreground"
-                    onClick={handleDownload}
-                    title="Download CSV"
-                    aria-label="Download CSV"
-                  >
-                    <Download className="h-4 w-4" />
-                    <span className="sr-only">Download CSV</span>
-                  </Button>
-                </div>
-                <div className="overflow-x-auto">
-                  <table
-                    ref={ref}
-                    className="w-full border-collapse border border-border rounded-lg overflow-hidden"
-                    {...props}
-                  >
-                    {children}
-                  </table>
-                </div>
-              </div>
-            );
-          };
-
-          return <TableWithActions />;
+          return <TableWithActions tableProps={props}>{children}</TableWithActions>;
         },
         thead: ({ children, ...props }) => (
           <thead className="bg-muted/50" {...props}>
@@ -143,87 +241,15 @@ export const Response = memo(
                 filename = fileMatch[1].trim()
               }
             }
-            
-            const mode = language.toLowerCase().startsWith('py') ? 'python' : language.toLowerCase().startsWith('sql') ? 'sql' : 'sql'
-
-            const CodeWithActions: React.FC = () => {
-              const [showExec, setShowExec] = useState(false)
-              const [showChart, setShowChart] = useState(false)
-              const [isExecuting, setIsExecuting] = useState(false)
-              // Auto-show folded tool if this code has history
-              const codeKey = React.useMemo(() => {
-                const key = `exec_history_v1`
-                try {
-                  const raw = typeof window !== 'undefined' ? localStorage.getItem(key) : null
-                  if (!raw) return false
-                  const arr = JSON.parse(raw) as Array<{ codeHash: string; mode: string }>
-                  const hash = (() => {
-                    let h = 2166136261
-                    const s = `${mode}:${codeContent}`
-                    for (let i = 0; i < s.length; i++) {
-                      h ^= s.charCodeAt(i)
-                      h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)
-                    }
-                    return (h >>> 0).toString(16)
-                  })()
-                  return arr.some(e => e.codeHash === hash && e.mode === mode)
-                } catch {
-                  return false
-                }
-              }, [mode, codeContent])
-              React.useEffect(() => {
-                if (codeKey) setShowExec(true)
-              }, [codeKey])
-              return (
-                <div className="space-y-3">
-                  <CodeBlock 
-                    code={codeContent}
-                    language={language}
-                    filename={filename}
-                    showLineNumbers={true}
-                    {...props}
-                  >
-                    <CodeBlockCopyButton iconOnly />
-                    {mode === 'sql' && (
-                    <button
-                      className="flex h-8 w-8 items-center justify-center rounded-md text-gray-600 transition-all hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                      onClick={() => {
-                        setShowExec(true)
-                        setIsExecuting(true)
-                      }}
-                      disabled={isExecuting}
-                      aria-label={isExecuting ? "Executing..." : "Execute"}
-                      title={isExecuting ? "Executing..." : "Execute"}
-                    >
-                      {isExecuting ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : (
-                        <Play size={14} />
-                      )}
-                    </button>
-                    )}
-                  </CodeBlock>
-                  {showExec && (
-                    <>
-                      <ExecutionTool 
-                        mode={mode as 'sql' | 'python'} 
-                        code={codeContent} 
-                        shouldExecute={true}
-                        onSuccess={() => {
-                          setIsExecuting(false)
-                          if (chartEnabled) {
-                            setShowChart(true)
-                          }
-                        }}
-                        onComplete={() => setIsExecuting(false)}
-                      />
-                    </>
-                  )}
-                </div>
-              )
-            }
-
-            return <CodeWithActions />
+            return (
+              <HoistedCodeWithActions 
+                language={language} 
+                codeContent={codeContent} 
+                filename={filename}
+                chartEnabled={chartEnabled}
+                codeBlockProps={props}
+              />
+            )
           }
           // Inline code
           return <InlineCode className={className} {...props}>{children}</InlineCode>
@@ -256,90 +282,18 @@ export const Response = memo(
                 filename = fileMatch[1].trim()
               }
             }
-
-            const mode = language.toLowerCase().startsWith('py') ? 'python' : language.toLowerCase().startsWith('sql') ? 'sql' : 'sql'
-
-            const CodeWithActions: React.FC = () => {
-              const [showExec, setShowExec] = useState(false)
-              const [showChart, setShowChart] = useState(false)
-              const [isExecuting, setIsExecuting] = useState(false)
-              // Auto-show folded tool if this code has history
-              const codeKey = React.useMemo(() => {
-                const key = `exec_history_v1`
-                try {
-                  const raw = typeof window !== 'undefined' ? localStorage.getItem(key) : null
-                  if (!raw) return false
-                  const arr = JSON.parse(raw) as Array<{ codeHash: string; mode: string }>
-                  const hash = (() => {
-                    let h = 2166136261
-                    const s = `${mode}:${codeContent}`
-                    for (let i = 0; i < s.length; i++) {
-                      h ^= s.charCodeAt(i)
-                      h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)
-                    }
-                    return (h >>> 0).toString(16)
-                  })()
-                  return arr.some(e => e.codeHash === hash && e.mode === mode)
-                } catch {
-                  return false
-                }
-              }, [mode, codeContent])
-              React.useEffect(() => {
-                if (codeKey) setShowExec(true)
-              }, [codeKey])
-              return (
-                <div className="space-y-3">
-                  <CodeBlock 
-                    code={codeContent}
-                    language={language}
-                    filename={filename}
-                    showLineNumbers={true}
-                  >
-                    <CodeBlockCopyButton iconOnly />
-                    {mode === 'sql' && (
-                    <button
-                      className="flex h-8 w-8 items-center justify-center rounded-md text-gray-600 transition-all hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                      onClick={() => {
-                        setShowExec(true)
-                        setIsExecuting(true)
-                      }}
-                      disabled={isExecuting}
-                      aria-label={isExecuting ? "Executing..." : "Execute"}
-                      title={isExecuting ? "Executing..." : "Execute"}
-                    >
-                      {isExecuting ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : (
-                        <Play size={14} />
-                      )}
-                    </button>
-                    )}
-                  </CodeBlock>
-                  {showExec && (
-                    <>
-                      <ExecutionTool 
-                        mode={mode as 'sql' | 'python'} 
-                        code={codeContent} 
-                        shouldExecute={true}
-                        onSuccess={() => {
-                          setIsExecuting(false)
-                          if (chartEnabled) {
-                            setShowChart(true)
-                          }
-                        }}
-                        onComplete={() => setIsExecuting(false)}
-                      />
-                    </>
-                  )}
-                </div>
-              )
-            }
-
-            return <CodeWithActions />
+            return (
+              <HoistedCodeWithActions 
+                language={language} 
+                codeContent={codeContent} 
+                filename={filename}
+                chartEnabled={chartEnabled}
+              />
+            )
           }
           return <pre {...props}>{children}</pre>
         }
-      }}
+      }), [chartEnabled])}
       {...props}
     />
   ),

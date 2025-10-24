@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { execTrace } from "@/lib/trace"
 import { BarChart } from '@mui/x-charts/BarChart'
 import { LineChart } from '@mui/x-charts/LineChart'
 import { PieChart } from '@mui/x-charts/PieChart'
@@ -41,6 +42,13 @@ const chartIcons = {
 
 export function MuiChart({ config, columns, rows, onEdit, onDelete }: MuiChartProps) {
   const [isModalOpen, setIsModalOpen] = React.useState(false)
+  React.useEffect(() => {
+    execTrace("MuiChart mount", { title: config.title, type: config.type, rows: rows.length, cols: columns.length })
+    return () => execTrace("MuiChart unmount", { title: config.title, type: config.type })
+  }, [config.title, config.type])
+  React.useEffect(() => {
+    execTrace("MuiChart data changed", { title: config.title, rows: rows.length, cols: columns.length })
+  }, [rows, columns, config.title])
   
   // Transform data for MUI Charts
   const chartData = React.useMemo(() => {
@@ -79,8 +87,9 @@ export function MuiChart({ config, columns, rows, onEdit, onDelete }: MuiChartPr
 
     if (config.type === 'scatter') {
       // For scatter plots, we need x-y coordinate pairs
+      // Ensure each point has a unique id to avoid duplicate React keys
       const scatterData = rows
-        .map(row => {
+        .map((row, idx) => {
           const xValue = row[config.xAxis]
           const yValue = row[config.yAxis]
           
@@ -89,7 +98,7 @@ export function MuiChart({ config, columns, rows, onEdit, onDelete }: MuiChartPr
             const y = typeof yValue === 'number' ? yValue : parseFloat(String(yValue))
             
             if (!isNaN(x) && !isNaN(y)) {
-              return { x, y, id: `${x}-${y}` }
+              return { x, y, id: `${idx}-${x}-${y}` }
             }
           }
           return null
