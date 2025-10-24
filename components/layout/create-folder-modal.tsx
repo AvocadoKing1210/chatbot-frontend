@@ -16,7 +16,6 @@ import {
 import { Label } from "@/components/ui/label"
 import { Folder } from "lucide-react"
 import { CreateFolderData } from "@/data/folders"
-import { cn } from "@/lib/utils"
 
 interface CreateFolderModalProps {
   open: boolean

@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import NextImage from "next/image";
 import {
   Collapsible,
   CollapsibleContent,
@@ -151,12 +152,12 @@ export const QueueItemImage = ({
   className,
   ...props
 }: QueueItemImageProps) => (
-  <img
-    alt=""
+  <NextImage
     className={cn("h-8 w-8 rounded border object-cover", className)}
     height={32}
     width={32}
-    {...props}
+    unoptimized
+    {...(props as React.ComponentProps<typeof NextImage>)}
   />
 );
 

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
  * This can be used anywhere in your app that's wrapped by ModeProvider
  */
 export function ModeAwareComponent() {
-  const { selectedMode, isSqlMode, isPythonMode } = useMode()
+  const { selectedMode, isSqlMode } = useMode()
 
   return (
     <div className="flex items-center gap-2 p-3 border rounded-lg bg-muted/50">

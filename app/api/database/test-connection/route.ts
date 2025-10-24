@@ -47,7 +47,7 @@ function sanitizeConnectionString(connectionString: string): string {
 }
 
 // Get table schema information using existing client
-async function getTableSchemaWithClient(client: any): Promise<TableInfo[]> {
+async function getTableSchemaWithClient(client: { query: (text: string, params?: unknown[]) => Promise<{ rows: unknown[] }> }): Promise<TableInfo[]> {
   // Get all tables in the public schema
   const tablesQuery = `
     SELECT table_name 
@@ -62,7 +62,7 @@ async function getTableSchemaWithClient(client: any): Promise<TableInfo[]> {
   const tables: TableInfo[] = []
   
   for (const table of tablesResult.rows) {
-    const tableName = table.table_name
+    const tableName = (table as { table_name: string }).table_name
     
     // Get column information
     const columnsQuery = `
@@ -83,18 +83,21 @@ async function getTableSchemaWithClient(client: any): Promise<TableInfo[]> {
     const countQuery = `SELECT COUNT(*) as count FROM "${tableName}"`
     const countResult = await client.query(countQuery)
     
-    const columns: ColumnInfo[] = columnsResult.rows.map((row: any) => ({
-      name: row.column_name,
-      type: row.character_maximum_length 
-        ? `${row.data_type}(${row.character_maximum_length})`
-        : row.data_type,
-      nullable: row.is_nullable === 'YES'
-    }))
+    const columns: ColumnInfo[] = columnsResult.rows.map((row: unknown) => {
+      const typedRow = row as { column_name: string; data_type: string; character_maximum_length: number | null; is_nullable: string }
+      return {
+        name: typedRow.column_name,
+        type: typedRow.character_maximum_length 
+          ? `${typedRow.data_type}(${typedRow.character_maximum_length})`
+          : typedRow.data_type,
+        nullable: typedRow.is_nullable === 'YES'
+      }
+    })
     
     tables.push({
       name: tableName,
       columns,
-      rowCount: parseInt(countResult.rows[0].count)
+      rowCount: parseInt((countResult.rows[0] as { count: string }).count)
     })
   }
   

@@ -5,7 +5,7 @@ import { createTheme, ThemeProvider as MuiThemeProvider } from '@mui/material/st
 import { useTheme } from 'next-themes'
 
 export function MuiThemeProviderWrapper({ children }: { children: React.ReactNode }) {
-  const { theme, resolvedTheme } = useTheme()
+  const { resolvedTheme } = useTheme()
   
   const muiTheme = React.useMemo(() => {
     const isDark = resolvedTheme === 'dark'

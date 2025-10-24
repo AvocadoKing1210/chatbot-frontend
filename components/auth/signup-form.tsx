@@ -132,7 +132,7 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Check your email</CardTitle>
           <CardDescription>
-            We've sent you a confirmation link to verify your account
+            We&apos;ve sent you a confirmation link to verify your account
           </CardDescription>
         </CardHeader>
         <CardContent className="text-center">

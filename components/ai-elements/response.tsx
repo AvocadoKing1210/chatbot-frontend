@@ -33,7 +33,7 @@ type HoistedCodeWithActionsProps = {
   codeBlockProps?: Record<string, unknown>
 }
 
-const HoistedCodeWithActions: React.FC<HoistedCodeWithActionsProps> = memo(({ language, codeContent, filename, chartEnabled, codeBlockProps }) => {
+const HoistedCodeWithActions: React.FC<HoistedCodeWithActionsProps> = memo(({ language, codeContent, filename, codeBlockProps }) => {
   const mode = language.toLowerCase().startsWith('py') ? 'python' : language.toLowerCase().startsWith('sql') ? 'sql' : 'sql'
   const [showExec, setShowExec] = useState(() => {
     return Boolean((() => {
@@ -262,7 +262,7 @@ export const Response = memo(
               'className' in children.props &&
               typeof children.props.className === 'string' &&
               children.props.className.includes('language-')) {
-            const codeElement = children.props as { className: string; children: any }
+            const codeElement = children.props as { className: string; children: unknown }
             const language = codeElement.className.replace('language-', '')
             const codeContent = typeof codeElement.children === 'string' ? codeElement.children : String(codeElement.children)
             

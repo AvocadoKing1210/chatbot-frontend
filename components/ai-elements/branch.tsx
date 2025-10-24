@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { UIMessage } from "ai";
@@ -82,7 +83,7 @@ export type BranchMessagesProps = HTMLAttributes<HTMLDivElement>;
 
 export const BranchMessages = ({ children, ...props }: BranchMessagesProps) => {
   const { currentBranch, setBranches, branches } = useBranch();
-  const childrenArray = Array.isArray(children) ? children : [children];
+  const childrenArray = React.useMemo(() => Array.isArray(children) ? children : [children], [children]);
 
   // Use useEffect to update branches when they change
   useEffect(() => {

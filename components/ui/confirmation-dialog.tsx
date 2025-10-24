@@ -36,7 +36,7 @@ export function DeleteChatDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div className="text-sm text-muted-foreground">
-            Are you sure you want to delete "{chatTitle}"? This action cannot be undone and will permanently remove all messages in this chat.
+            Are you sure you want to delete &quot;{chatTitle}&quot;? This action cannot be undone and will permanently remove all messages in this chat.
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>

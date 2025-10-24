@@ -4,9 +4,6 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { MuiThemeProviderWrapper } from "@/components/providers/mui-theme-provider";
 import { AuthProvider } from "@/components/providers/auth-provider";
-import { ChatProvider } from "@/components/providers/chat-provider";
-import { SidebarProvider } from "@/components/providers/sidebar-provider";
-import { PersistentLayout } from "@/components/layout/persistent-layout";
 import { ConditionalLayout } from "@/components/layout/conditional-layout";
 import { Toaster } from "@/components/ui/toaster";
 

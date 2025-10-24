@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       
       try {
         // Just test basic connectivity - no schema queries
-        const result = await client.query('SELECT 1 as test')
+        await client.query('SELECT 1 as test')
         console.log('Fast connection test successful')
         
         return NextResponse.json({

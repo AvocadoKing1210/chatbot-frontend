@@ -10,7 +10,6 @@ interface IsolatedCopyButtonProps {
 }
 
 export const IsolatedCopyButton = React.memo(({ 
-  messageId, 
   text, 
   tooltip 
 }: IsolatedCopyButtonProps) => {

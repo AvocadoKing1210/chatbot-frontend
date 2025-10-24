@@ -2,7 +2,6 @@ import type {
   Chat, 
   Message, 
   Folder, 
-  Profile, 
   Tag 
 } from '@/lib/types/database'
 
@@ -101,16 +100,6 @@ export function transformFolderToFolderItem(
   }
 }
 
-// Transform database profile to app profile
-export function transformProfileToUserProfile(profile: Profile): UserProfile {
-  return {
-    id: profile.id,
-    name: profile.name || '',
-    email: profile.email || '',
-    avatar: profile.avatar_url || undefined,
-    workspace: profile.workspace || undefined,
-  }
-}
 
 // Transform database tag to app tag
 export function transformTagToTagItem(tag: Tag): TagItem {
@@ -155,16 +144,6 @@ export function transformFolderItemToFolder(folderItem: FolderItem, userId: stri
   }
 }
 
-// Transform app profile to database profile
-export function transformUserProfileToProfile(userProfile: UserProfile) {
-  return {
-    id: userProfile.id,
-    name: userProfile.name,
-    email: userProfile.email,
-    avatar_url: userProfile.avatar || null,
-    workspace: userProfile.workspace || null,
-  }
-}
 
 // Transform app tag to database tag
 export function transformTagItemToTag(tagItem: TagItem, userId: string) {

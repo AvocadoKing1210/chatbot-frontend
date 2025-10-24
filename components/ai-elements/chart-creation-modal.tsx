@@ -77,6 +77,16 @@ export type ChartConfig = {
   lineOptions?: LineChartOptions
 }
 
+export type SeriesData = {
+  data: number[]
+  label?: string
+  stack?: string
+  area?: boolean
+  curve?: "linear" | "catmullRom" | "monotoneX" | "monotoneY" | "natural" | "step" | "stepBefore" | "stepAfter" | "bumpX" | "bumpY"
+  showMark?: boolean
+  connectNulls?: boolean
+}
+
 export type ChartCreationModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -331,7 +341,7 @@ export function ChartCreationModal({
           curve: s.curve,
           showMark: s.showMark,
           connectNulls: s.connectNulls
-        } as any
+        } as SeriesData
       })
       return { labels, series }
     } else if (chartType === 'line' && lineOptions.type === 'stacked' && lineOptions.stackGroups && lineOptions.stackGroups.length > 0) {
@@ -1180,7 +1190,7 @@ export function ChartCreationModal({
                       series={previewData.series.map((s, index) => ({
                         data: s.data,
                         label: barOptions.showLegend ? s.label : undefined,
-                        stack: s.stack,
+                        stack: (s as SeriesData).stack,
                         color: `hsl(${200 + index * 40}, 70%, 50%)`, // Different colors for each series
                       }))}
                       layout={barOptions.layout === 'horizontal' ? 'horizontal' : undefined}
@@ -1203,11 +1213,11 @@ export function ChartCreationModal({
                       series={previewData.series.map((s, index) => ({
                         data: s.data,
                         label: lineOptions.showLegend ? s.label : undefined,
-                        stack: (s as any).stack,
-                        area: (s as any).area,
-                        curve: (s as any).curve,
-                        showMark: (s as any).showMark,
-                        connectNulls: (s as any).connectNulls,
+                        stack: (s as SeriesData).stack,
+                        area: (s as SeriesData).area,
+                        curve: (s as SeriesData).curve,
+                        showMark: (s as SeriesData).showMark,
+                        connectNulls: (s as SeriesData).connectNulls,
                         color: `hsl(${200 + index * 40}, 70%, 50%)`, // Different colors for each series
                       }))}
                       height={300}

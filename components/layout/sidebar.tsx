@@ -23,6 +23,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Kbd } from "@/components/ui/kbd"
 import { cn, getKeyboardShortcut } from "@/lib/utils"
 import { useChat } from "@/components/providers/chat-provider"
+import { FolderItem } from "@/data/folders"
 import { AnimatedChatList } from "@/components/ai-elements/animated-chat-list"
 import { FolderRow } from "@/components/layout/folder-row"
 import { CreateFolderModal } from "@/components/layout/create-folder-modal"
@@ -63,9 +64,9 @@ export function Sidebar({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false)
   const [chatToDelete, setChatToDelete] = React.useState<string | null>(null)
   const [deleteFolderOpen, setDeleteFolderOpen] = React.useState(false)
-  const [folderToDelete, setFolderToDelete] = React.useState<any>(null)
+  const [folderToDelete, setFolderToDelete] = React.useState<FolderItem | null>(null)
   const [createFolderOpen, setCreateFolderOpen] = React.useState(false)
-  const [editingFolder, setEditingFolder] = React.useState<any>(null)
+  const [editingFolder, setEditingFolder] = React.useState<FolderItem | null>(null)
   const [expandedFolders, setExpandedFolders] = React.useState<Set<string>>(new Set())
   const [folderManagementOpen, setFolderManagementOpen] = React.useState(false)
   const { 
@@ -74,11 +75,9 @@ export function Sidebar({
     isLoading,
     animatingChats,
     animatingFolders,
-    createChat, 
     setCurrentChat, 
     togglePin, 
-    deleteChat, 
-    updateChat,
+    deleteChat,
     createFolder,
     updateFolder,
     deleteFolder,
@@ -186,17 +185,17 @@ export function Sidebar({
     moveChatToFolder(chatId, folderId)
   }
 
-  const handleCreateFolder = (data: any) => {
+  const handleCreateFolder = (data: { name: string; description?: string }) => {
     createFolder(data)
     setCreateFolderOpen(false)
   }
 
-  const handleEditFolder = (folder: any) => {
+  const handleEditFolder = (folder: FolderItem) => {
     setEditingFolder(folder)
     setCreateFolderOpen(true)
   }
 
-  const handleUpdateFolder = (data: any) => {
+  const handleUpdateFolder = (data: { name: string; description?: string }) => {
     if (editingFolder) {
       updateFolder(editingFolder.id, data)
       setEditingFolder(null)
@@ -270,10 +269,6 @@ export function Sidebar({
     })
   }
 
-  const handleSettings = () => {
-    // In a real app, this would open settings
-    console.log("Opening settings...")
-  }
 
   // Removed separate collapsed render path to keep one persistent motion.aside
 
@@ -620,7 +615,7 @@ export function Sidebar({
         onOpenChange={setCreateFolderOpen}
         onCreateFolder={editingFolder ? handleUpdateFolder : handleCreateFolder}
         isEditing={!!editingFolder}
-        initialData={editingFolder}
+        initialData={editingFolder || undefined}
       />
       
       <DeleteFolderDialog

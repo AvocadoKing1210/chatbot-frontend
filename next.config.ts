@@ -1,10 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  experimental: {
-    // Increase API route timeout for database connections
-    serverComponentsExternalPackages: ['pg'],
-  },
+  // External packages for server components
+  serverExternalPackages: ['pg'],
   // Configure API route timeout
   async headers() {
     return [

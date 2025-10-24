@@ -4,14 +4,13 @@ import * as React from "react"
 import { execTrace, execTraceGroupStart, execTraceGroupEnd, execMark } from "@/lib/trace"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Tool, ToolContent, ToolInput, ToolOutput } from "./tool"
+import { ToolOutput } from "./tool"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { DataTable, type DataTableColumn } from "./data-table"
 import { ChartCreationModal, type ChartConfig } from "./chart-creation-modal"
 import { MuiChart } from "./mui-chart"
 import { cn } from "@/lib/utils"
 import { Play, Repeat, BarChart3, Download, CheckCircleIcon, CircleIcon, ClockIcon, XCircleIcon, ChevronDownIcon, Square, ChevronRight } from "lucide-react"
-import { mockQueryExecutionResponse } from "@/data"
 //
 
 type ExecutionState = "idle" | "running" | "success" | "error"
@@ -48,7 +47,7 @@ const CHARTS_KEY = "exec_charts_v1"
 
 // In-memory cache to avoid re-hydration flicker and repeated storage reads
 const EXEC_RESULT_CACHE = new Map<string, StoredExecution>()
-const EXEC_INFLIGHT = new Map<string, Promise<{ ok: boolean; status: number; body: any }>>()
+const EXEC_INFLIGHT = new Map<string, Promise<{ ok: boolean; status: number; body: unknown }>>()
 const EXEC_ABORTS = new Map<string, AbortController>()
 
 function getExecCacheKey(mode: "sql" | "python", codeHash: string) {
@@ -230,7 +229,7 @@ function getStoredChartsInfo() {
 
 // Make it available globally for debugging
 if (typeof window !== "undefined") {
-  (window as any).getStoredChartsInfo = getStoredChartsInfo
+  (window as { getStoredChartsInfo?: typeof getStoredChartsInfo }).getStoredChartsInfo = getStoredChartsInfo
 }
 
 export const ExecutionTool = React.memo(function ExecutionTool({ className, mode, code, shouldExecute = false, onSuccess, onComplete, ...props }: ExecutionToolProps) {
@@ -241,7 +240,7 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
   const [columns, setColumns] = React.useState<DataTableColumn[]>(() => hydratedEntry?.columns ?? [])
   const [rows, setRows] = React.useState<Array<Record<string, unknown>>>(() => hydratedEntry?.rows ?? [])
   const [meta, setMeta] = React.useState<{ full: boolean; effectiveLimit: number; wasClamped: boolean } | undefined>(() => hydratedEntry?.meta)
-  const [queryId, setQueryId] = React.useState<number | undefined>(() => hydratedEntry?.id)
+  const [, setQueryId] = React.useState<number | undefined>(() => hydratedEntry?.id)
   const [errorDetails, setErrorDetails] = React.useState<string | undefined>(undefined)
   const [userOpened, setUserOpened] = React.useState<boolean>(() => {
     if (typeof window === "undefined") return shouldExecute
@@ -332,8 +331,6 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
     }
   }, [editingChart, codeHash])
   
-  // Track if this is the initial page load (not a component re-render)
-  const isInitialLoadRef = React.useRef(true)
   
   // Cache freshness (TTL)
   const CACHE_TTL_MS = 10 * 60 * 1000
@@ -341,7 +338,7 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
     if (!hydratedEntry) return false
     const createdAtTs = new Date(hydratedEntry.createdAt).getTime()
     return Number.isFinite(createdAtTs) && (Date.now() - createdAtTs) < CACHE_TTL_MS
-  }, [hydratedEntry])
+  }, [hydratedEntry, CACHE_TTL_MS])
 
   const handleDownloadCSV = React.useCallback(() => {
     if (columns.length === 0 || rows.length === 0) return
@@ -447,7 +444,7 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
     setExecState("running")
     setExecError(undefined)
     // notify start for external UI if provided
-    try { (props as any)?.onStart?.() } catch {}
+    try { (props as { onStart?: () => void })?.onStart?.() } catch {}
     try {
       const startedAt = performance.now()
       execMark(`exec:start:${codeHash}`)
@@ -499,7 +496,7 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
             }),
             signal: controller.signal,
           })
-          let body: any = null
+          let body: unknown = null
           try {
             body = await response.json()
           } catch {
@@ -517,13 +514,13 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
       const envelope = await envelopePromise
 
       if (!envelope.ok) {
-        const msg = envelope.body?.message || `Query execution failed (HTTP ${envelope.status})`
+        const msg = (envelope.body as { message?: string })?.message || `Query execution failed (HTTP ${envelope.status})`
         throw new Error(msg)
       }
 
-      const result = envelope.body
+      const result = envelope.body as { columns: DataTableColumn[]; data: Array<Record<string, unknown>>; meta: { full: boolean; effectiveLimit: number; wasClamped: boolean }; query_id: number }
       setColumns(result.columns)
-      setRows(result.data as Array<Record<string, unknown>>)
+      setRows(result.data)
       setMeta(result.meta)
       setQueryId(result.query_id)
       setErrorDetails(undefined)
@@ -551,7 +548,7 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
       onSuccess?.(result.query_id)
     } catch (e) {
       const err = e as Error
-      if ((err as any)?.name === 'AbortError') {
+      if ((err as Error & { name?: string })?.name === 'AbortError') {
         setExecError('Execution cancelled')
       } else {
         const msg = (err && err.message) ? err.message : String(err)
@@ -640,14 +637,6 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
 
   // No post-mount history hydration; handled synchronously in state init
 
-  const toolState =
-    execState === "idle"
-      ? ("input-streaming" as const)
-      : execState === "running"
-      ? ("input-available" as const)
-      : execState === "success"
-      ? ("output-available" as const)
-      : ("output-error" as const)
 
   return (
     <div className={cn("not-prose", className)} {...props}>

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { motion, AnimatePresence, Reorder } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { ChatListItem } from "./chat-list-item"
 import { ChatItem } from "@/data/chats"
 import { FolderItem } from "@/data/folders"
@@ -30,12 +30,11 @@ export function AnimatedChatList({
   onMoveToFolder,
   activeChatId,
   className,
-  isCollapsed = false,
   folders = [],
   animatingChats = new Set(),
   onAnimationComplete
 }: AnimatedChatListProps) {
-  const [reorderItems, setReorderItems] = React.useState(chats)
+  const [, setReorderItems] = React.useState(chats)
 
   // Update reorder items when chats change
   React.useEffect(() => {
@@ -210,7 +209,6 @@ export function EnhancedChatListItem({
   onDelete,
   onMoveToFolder,
   isActive,
-  isCollapsed = false,
   isAnimating = false,
   className
 }: EnhancedChatListItemProps) {

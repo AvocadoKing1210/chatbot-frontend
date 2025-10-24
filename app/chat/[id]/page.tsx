@@ -64,7 +64,7 @@ function ChatPageContent() {
 
       loadChat()
     }
-  }, [chatId, chats, setCurrentChat, router, user, authLoading])
+  }, [chatId, chats, setCurrentChat, router, user, authLoading, currentChat])
 
   // Show loading while auth is loading
   if (authLoading) {
@@ -94,7 +94,7 @@ function ChatPageContent() {
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <h2 className="text-lg font-semibold mb-2">Chat not found</h2>
-          <p className="text-muted-foreground mb-4">The chat you're looking for doesn't exist or you don't have access to it.</p>
+          <p className="text-muted-foreground mb-4">The chat you&apos;re looking for doesn&apos;t exist or you don&apos;t have access to it.</p>
           <button 
             onClick={() => router.push('/')}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"

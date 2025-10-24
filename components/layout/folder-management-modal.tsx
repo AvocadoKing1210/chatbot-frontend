@@ -14,10 +14,9 @@ import { Folder, Plus, ChevronDown, ChevronRight } from "lucide-react"
 import { CreateFolderModal } from "./create-folder-modal"
 import { DeleteFolderDialog } from "@/components/ui/delete-folder-dialog"
 import { FolderRow } from "./folder-row"
-import { AnimatedChatList } from "@/components/ai-elements/animated-chat-list"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
-import { cn } from "@/lib/utils"
 import { useChat } from "@/components/providers/chat-provider"
+import { FolderItem } from "@/data/folders"
 
 interface FolderManagementModalProps {
   open: boolean
@@ -32,9 +31,9 @@ export function FolderManagementModal({
     folders: false,
   })
   const [createFolderOpen, setCreateFolderOpen] = React.useState(false)
-  const [editingFolder, setEditingFolder] = React.useState<any>(null)
+  const [editingFolder, setEditingFolder] = React.useState<FolderItem | null>(null)
   const [deleteFolderOpen, setDeleteFolderOpen] = React.useState(false)
-  const [folderToDelete, setFolderToDelete] = React.useState<any>(null)
+  const [folderToDelete, setFolderToDelete] = React.useState<FolderItem | null>(null)
   const [expandedFolders, setExpandedFolders] = React.useState<Set<string>>(new Set())
   
   const { 
@@ -75,17 +74,17 @@ export function FolderManagementModal({
     moveChatToFolder(chatId, folderId)
   }
 
-  const handleCreateFolder = (data: any) => {
+  const handleCreateFolder = (data: { name: string; description?: string }) => {
     createFolder(data)
     setCreateFolderOpen(false)
   }
 
-  const handleEditFolder = (folder: any) => {
+  const handleEditFolder = (folder: FolderItem) => {
     setEditingFolder(folder)
     setCreateFolderOpen(true)
   }
 
-  const handleUpdateFolder = (data: any) => {
+  const handleUpdateFolder = (data: { name: string; description?: string }) => {
     if (editingFolder) {
       updateFolder(editingFolder.id, data)
       setEditingFolder(null)
@@ -215,7 +214,7 @@ export function FolderManagementModal({
         onOpenChange={setCreateFolderOpen}
         onCreateFolder={editingFolder ? handleUpdateFolder : handleCreateFolder}
         isEditing={!!editingFolder}
-        initialData={editingFolder}
+        initialData={editingFolder || undefined}
       />
       
       <DeleteFolderDialog

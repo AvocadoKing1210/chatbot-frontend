@@ -5,29 +5,19 @@ import { useAuth } from "@/components/providers/auth-provider"
 import { useAIChat } from "@/hooks/use-ai-chat"
 import { 
   ChatItem, 
-  Message, 
   CreateChatData, 
-  createNewChat, 
   addMessageToChat, 
-  updateChatTitle, 
-  updateChatTags,
   getChats,
-  getPinnedChats,
-  getRecentChats,
   createChat,
   updateChat,
   deleteChat,
-  addMessageToChatDB,
-  updateChatTagsInDB
+  addMessageToChatDB
 } from "@/data/chats"
 import { 
   FolderItem, 
   CreateFolderData, 
-  createNewFolder, 
-  updateFolder as updateFolderUtil, 
   addChatToFolder, 
   removeChatFromFolder, 
-  moveChatBetweenFolders,
   getFolders,
   createFolder,
   updateFolder,
@@ -96,7 +86,7 @@ interface ChatProviderProps {
 
 export function ChatProvider({ children }: ChatProviderProps) {
   const { user } = useAuth()
-  const { generateSQLQuery, generatePythonScript, generateGeneralResponse, isLoading: aiLoading, error: aiError } = useAIChat({
+  const { generateSQLQuery, generatePythonScript, generateGeneralResponse } = useAIChat({
     onError: (error) => {
       console.error('AI Service Error:', error)
     }
@@ -109,18 +99,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const [animatingFolders, setAnimatingFolders] = React.useState<Set<string>>(new Set())
   const initialResponseProcessedRef = React.useRef<Set<string>>(new Set())
   
-  // Load data when user is authenticated
-  React.useEffect(() => {
-    if (user?.id) {
-      loadUserData()
-    } else {
-      setChats([])
-      setFolders([])
-      setIsLoading(false)
-    }
-  }, [user?.id])
-
-  const loadUserData = async () => {
+  const loadUserData = React.useCallback(async () => {
     if (!user?.id) return
     
     try {
@@ -139,7 +118,18 @@ export function ChatProvider({ children }: ChatProviderProps) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [user?.id])
+
+  // Load data when user is authenticated
+  React.useEffect(() => {
+    if (user?.id) {
+      loadUserData()
+    } else {
+      setChats([])
+      setFolders([])
+      setIsLoading(false)
+    }
+  }, [user?.id, loadUserData])
 
   // Filter out empty chats (chats with no messages) for display purposes
   const nonEmptyChats = React.useMemo(() => 
@@ -220,7 +210,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
       console.error('Error creating chat:', error)
       throw error
     }
-  }, [user?.id])
+  }, [user?.id, animateChatOperation])
 
   
 

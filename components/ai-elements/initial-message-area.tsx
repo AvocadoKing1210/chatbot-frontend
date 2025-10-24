@@ -10,7 +10,7 @@ interface InitialMessageAreaProps {
   children?: React.ReactNode
 }
 
-export function InitialMessageArea({ onStartChat, className, children }: InitialMessageAreaProps) {
+export function InitialMessageArea({ className, children }: InitialMessageAreaProps) {
   return (
     <div className={cn("flex flex-col items-center justify-center h-full px-4", className)}>
       <div className="text-center space-y-8 max-w-2xl w-full relative">

@@ -369,7 +369,7 @@ export function ChatListItem({ chat, onClick, onTogglePin, onDelete, onMoveToFol
                     onSelect={(e: Event) => {
                       e.preventDefault()
                       if (!isCurrentFolder) {
-                        onMoveToFolder && onMoveToFolder(chat.id, f.id)
+                        onMoveToFolder?.(chat.id, f.id)
                         // Force close context menu after a short delay
                         setTimeout(() => {
                           document.body.click()
@@ -396,7 +396,7 @@ export function ChatListItem({ chat, onClick, onTogglePin, onDelete, onMoveToFol
                   <ContextMenuItem
                     onSelect={(e: Event) => {
                       e.preventDefault()
-                      onMoveToFolder && onMoveToFolder(chat.id, undefined)
+                      onMoveToFolder?.(chat.id, undefined)
                       // Force close context menu after a short delay
                       setTimeout(() => {
                         document.body.click()
@@ -434,7 +434,7 @@ export function ChatListItem({ chat, onClick, onTogglePin, onDelete, onMoveToFol
                       disabled={isCurrentFolder}
                       onSelect={() => {
                         if (!isCurrentFolder) {
-                          onMoveToFolder && onMoveToFolder(chat.id, f.id)
+                          onMoveToFolder?.(chat.id, f.id)
                           // Force close context menu after a short delay
                           setTimeout(() => {
                             document.body.click()
@@ -460,7 +460,7 @@ export function ChatListItem({ chat, onClick, onTogglePin, onDelete, onMoveToFol
                     <ContextMenuSeparator />
                     <ContextMenuItem
                       onSelect={() => {
-                        onMoveToFolder && onMoveToFolder(chat.id, undefined)
+                        onMoveToFolder?.(chat.id, undefined)
                         // Force close context menu after a short delay
                         setTimeout(() => {
                           document.body.click()
@@ -484,7 +484,7 @@ export function ChatListItem({ chat, onClick, onTogglePin, onDelete, onMoveToFol
               className="text-destructive focus:text-destructive"
               onSelect={(e: Event) => {
                 e.preventDefault()
-                onDelete && onDelete(chat.id)
+                onDelete?.(chat.id)
               }}
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete

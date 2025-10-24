@@ -143,7 +143,6 @@ export const CodeBlockCopyButton = ({
   onError,
   timeout = 2000,
   iconOnly = false,
-  children,
   className,
   ...props
 }: CodeBlockCopyButtonProps) => {

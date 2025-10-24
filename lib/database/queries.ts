@@ -12,7 +12,6 @@ import type {
   Tag,
   TagInsert,
   ChatTag,
-  ChatTagInsert
 } from '@/lib/types/database'
 
 // Client-side database utilities

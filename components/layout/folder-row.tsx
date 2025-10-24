@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
   ContextMenu,
@@ -10,21 +9,16 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
-  ContextMenuSub,
-  ContextMenuSubContent,
-  ContextMenuSubTrigger,
 } from "@/components/ui/context-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { 
   Folder, 
   ChevronRight, 
   ChevronDown, 
-  MoreHorizontal, 
   Edit, 
   Trash2, 
   MessageSquare,
-  FolderOpen,
-  Star
+  FolderOpen
 } from "lucide-react"
 import { FolderItem, ChatItem } from "@/data"
 import { cn } from "@/lib/utils"
@@ -99,26 +93,6 @@ export function FolderRow({
     }
   }, [isAdding, folder.id, onFolderAnimationComplete])
   
-  const formatTime = (timestamp: string) => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
-    const diffInDays = Math.floor(diffInHours / 24)
-    
-    if (diffInHours < 1) {
-      return "Just now"
-    } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)}h ago`
-    } else if (diffInDays < 7) {
-      return `${diffInDays}d ago`
-    } else {
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric',
-        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-      })
-    }
-  }
 
   return (
     <div className={cn("space-y-1", className)}>

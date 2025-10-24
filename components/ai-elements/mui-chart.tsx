@@ -20,7 +20,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { ChartConfig, ChartType } from "./chart-creation-modal"
+import { ChartConfig } from "./chart-creation-modal"
 import { DataTableColumn } from "./data-table"
 
 export type MuiChartProps = {
@@ -46,10 +46,10 @@ export const MuiChart = React.memo(function MuiChart({ config, columns, rows, on
   React.useEffect(() => {
     execTrace("MuiChart mount", { title: config.title, type: config.type, rows: rows.length, cols: columns.length })
     return () => execTrace("MuiChart unmount", { title: config.title, type: config.type })
-  }, [config.title, config.type])
+  }, [config.title, config.type, columns.length, rows.length])
   React.useEffect(() => {
     execTrace("MuiChart data changed", { title: config.title, rows: rows.length, cols: columns.length })
-  }, [rows, columns, config.title])
+  }, [rows, columns, config.title, rows.length, columns.length])
   
   // Transform data for MUI Charts
   const chartData = React.useMemo(() => {
@@ -173,7 +173,7 @@ export const MuiChart = React.memo(function MuiChart({ config, columns, rows, on
           curve: s.curve,
           showMark: s.showMark,
           connectNulls: s.connectNulls
-        } as any
+        } as { data: number[]; label?: string; area?: boolean; curve?: string; showMark?: boolean; connectNulls?: boolean }
       })
       return { xLabels, data: [], series, pieData: [], scatterData: [] }
     } else if (config.type === 'line' && config.lineOptions?.type === 'stacked' && config.lineOptions.stackGroups && config.lineOptions.stackGroups.length > 0) {
@@ -341,7 +341,7 @@ export const MuiChart = React.memo(function MuiChart({ config, columns, rows, on
             series={chartData.series.map((s, index) => ({
               data: s.data,
               label: config.barOptions?.showLegend ? s.label : undefined,
-              stack: s.stack,
+               stack: (s as { stack?: string }).stack,
               color: `hsl(${200 + index * 40}, 70%, 50%)`, // Different colors for each series
             }))}
             layout={config.barOptions?.layout === 'horizontal' ? 'horizontal' : undefined}
@@ -370,11 +370,11 @@ export const MuiChart = React.memo(function MuiChart({ config, columns, rows, on
             series={chartData.series.map((s, index) => ({
               data: s.data,
               label: config.lineOptions?.showLegend ? s.label : undefined,
-              stack: (s as any).stack,
-              area: (s as any).area,
-              curve: (s as any).curve,
-              showMark: (s as any).showMark,
-              connectNulls: (s as any).connectNulls,
+              stack: (s as { stack?: string }).stack,
+              area: (s as { area?: boolean }).area,
+              curve: (s as { curve?: string }).curve as "linear" | "catmullRom" | "monotoneX" | "monotoneY" | "natural" | "step" | "stepBefore" | "stepAfter" | "bumpX" | "bumpY" | undefined,
+              showMark: (s as { showMark?: boolean }).showMark,
+              connectNulls: (s as { connectNulls?: boolean }).connectNulls,
               color: `hsl(${200 + index * 40}, 70%, 50%)`, // Different colors for each series
             }))}
             grid={config.lineOptions?.showGrid ? { vertical: true, horizontal: true } : undefined}
@@ -424,7 +424,7 @@ export const MuiChart = React.memo(function MuiChart({ config, columns, rows, on
       default:
         return (
           <div className="flex items-center justify-center h-[400px] text-muted-foreground">
-            Chart type "{config.type}" not supported yet
+            Chart type &quot;{config.type}&quot; not supported yet
           </div>
         )
     }

@@ -81,7 +81,7 @@ export function StreamingResponse({
         intervalRef.current = null
       }
     }
-  }, [content, isStreaming])
+  }, [content, isStreaming, onStreamComplete])
 
   // Handle external stop signal
   React.useEffect(() => {

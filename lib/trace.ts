@@ -18,7 +18,6 @@ export function execTraceEnabled(): boolean {
 export function execTrace(...args: unknown[]): void {
   if (!execTraceEnabled()) return
   try {
-    // eslint-disable-next-line no-console
     console.log("[EXEC_TRACE]", ...args)
   } catch {}
 }
@@ -26,7 +25,6 @@ export function execTrace(...args: unknown[]): void {
 export function execTraceGroupStart(label: string, data?: unknown): void {
   if (!execTraceEnabled()) return
   try {
-    // eslint-disable-next-line no-console
     console.groupCollapsed(`[EXEC_TRACE] ${label}`, data ?? "")
   } catch {}
 }
@@ -34,7 +32,6 @@ export function execTraceGroupStart(label: string, data?: unknown): void {
 export function execTraceGroupEnd(): void {
   if (!execTraceEnabled()) return
   try {
-    // eslint-disable-next-line no-console
     console.groupEnd()
   } catch {}
 }

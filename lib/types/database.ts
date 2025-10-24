@@ -365,9 +365,6 @@ export type Folder = Tables<'folders'>
 export type FolderInsert = TablesInsert<'folders'>
 export type FolderUpdate = TablesUpdate<'folders'>
 
-export type Profile = Tables<'profiles'>
-export type ProfileInsert = TablesInsert<'profiles'>
-export type ProfileUpdate = TablesUpdate<'profiles'>
 
 export type Tag = Tables<'tags'>
 export type TagInsert = TablesInsert<'tags'>

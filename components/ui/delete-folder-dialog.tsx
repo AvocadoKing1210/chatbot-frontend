@@ -43,13 +43,13 @@ export function DeleteFolderDialog({
           </AlertDialogTitle>
           <div className="space-y-3">
             <AlertDialogDescription>
-              Are you sure you want to delete the folder <strong>"{folderName}"</strong>?
+              Are you sure you want to delete the folder <strong>&quot;{folderName}&quot;</strong>?
             </AlertDialogDescription>
             {chatCount > 0 && (
               <div className="p-3 bg-muted rounded-lg">
                 <span className="text-sm text-muted-foreground">
                   This folder contains {chatCount} chat{chatCount !== 1 ? 's' : ''}. 
-                  The chats will be moved out of this folder but won't be deleted.
+                  The chats will be moved out of this folder but won&apos;t be deleted.
                 </span>
               </div>
             )}

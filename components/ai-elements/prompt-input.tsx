@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import NextImage from "next/image";
 import {
   Command,
   CommandEmpty,
@@ -39,7 +40,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn, getKeyboardShortcut } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { ChatStatus, FileUIPart } from "ai";
 import {
   ImageIcon,
@@ -284,12 +285,13 @@ export function PromptInputAttachment({
       {...props}
     >
       {mediaType === "image" ? (
-        <img
+        <NextImage
           alt={data.filename || "attachment"}
           className="size-full rounded-md object-cover"
           height={56}
           src={data.url}
           width={56}
+          unoptimized
         />
       ) : (
         <div className="flex size-full max-w-full cursor-pointer items-center justify-start gap-2 overflow-hidden px-2 text-muted-foreground">
@@ -554,36 +556,48 @@ export const PromptInput = ({
     [matchesAccept, maxFiles, maxFileSize, onError]
   );
 
-  const add = usingProvider
-    ? (files: File[] | FileList) => controller.attachments.add(files)
-    : addLocal;
+  const add = useMemo(
+    () => usingProvider && controller
+      ? (files: File[] | FileList) => controller.attachments.add(files)
+      : addLocal,
+    [usingProvider, controller, addLocal]
+  );
 
-  const remove = usingProvider
-    ? (id: string) => controller.attachments.remove(id)
-    : (id: string) =>
-        setItems((prev) => {
-          const found = prev.find((file) => file.id === id);
-          if (found?.url) {
-            URL.revokeObjectURL(found.url);
-          }
-          return prev.filter((file) => file.id !== id);
-        });
-
-  const clear = usingProvider
-    ? () => controller.attachments.clear()
-    : () =>
-        setItems((prev) => {
-          for (const file of prev) {
-            if (file.url) {
-              URL.revokeObjectURL(file.url);
+  const remove = useMemo(
+    () => usingProvider && controller
+      ? (id: string) => controller.attachments.remove(id)
+      : (id: string) =>
+          setItems((prev) => {
+            const found = prev.find((file) => file.id === id);
+            if (found?.url) {
+              URL.revokeObjectURL(found.url);
             }
-          }
-          return [];
-        });
+            return prev.filter((file) => file.id !== id);
+          }),
+    [usingProvider, controller]
+  );
 
-  const openFileDialog = usingProvider
-    ? () => controller.attachments.openFileDialog()
-    : openFileDialogLocal;
+  const clear = useMemo(
+    () => usingProvider && controller
+      ? () => controller.attachments.clear()
+      : () =>
+          setItems((prev) => {
+            for (const file of prev) {
+              if (file.url) {
+                URL.revokeObjectURL(file.url);
+              }
+            }
+            return [];
+          }),
+    [usingProvider, controller]
+  );
+
+  const openFileDialog = useMemo(
+    () => usingProvider && controller
+      ? () => controller.attachments.openFileDialog()
+      : openFileDialogLocal,
+    [usingProvider, controller, openFileDialogLocal]
+  );
 
   // Let provider know about our hidden file input so external menus can call openFileDialog()
   useEffect(() => {
@@ -708,7 +722,7 @@ export const PromptInput = ({
 
     // Convert blob URLs to data URLs asynchronously
     Promise.all(
-      files.map(async ({ id, ...item }) => {
+      files.map(async ({ ...item }) => {
         if (item.url && item.url.startsWith("blob:")) {
           return {
             ...item,
@@ -740,7 +754,7 @@ export const PromptInput = ({
             controller.textInput.clear();
           }
         }
-      } catch (error) {
+      } catch {
         // Don't clear on error - user may want to retry
       }
     });
@@ -1052,13 +1066,13 @@ interface SpeechRecognition extends EventTarget {
   lang: string;
   start(): void;
   stop(): void;
-  onstart: ((this: SpeechRecognition, ev: Event) => any) | null;
-  onend: ((this: SpeechRecognition, ev: Event) => any) | null;
+  onstart: ((this: SpeechRecognition, ev: Event) => void) | null;
+  onend: ((this: SpeechRecognition, ev: Event) => void) | null;
   onresult:
-    | ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any)
+    | ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => void)
     | null;
   onerror:
-    | ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => any)
+    | ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => void)
     | null;
 }
 

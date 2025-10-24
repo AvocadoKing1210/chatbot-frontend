@@ -12,14 +12,9 @@ import {
   Trash2,
   Tag,
   ArrowLeft,
-  RotateCcw,
-  ThumbsUp,
-  ThumbsDown,
-  Share,
   X,
   Plus,
-  Database,
-  Circle
+  Database
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -36,12 +31,8 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogTrigger 
 } from "@/components/ui/dialog"
-import { Textarea } from "@/components/ui/textarea"
 import { ChatInput } from "./chat-input"
-import { Actions, Action } from "./actions"
-import { CopyButton } from "@/components/ui/copy-button"
 import { StreamingResponse } from "./streaming-response"
 import { Conversation, ConversationContent, ConversationScrollButton } from "./conversation"
 import { MessageActions } from "./message-actions"
@@ -81,7 +72,6 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
   const [savedConnections, setSavedConnections] = React.useState<SavedConnection[]>([])
   const [currentConnection, setCurrentConnection] = React.useState<SavedConnection | null>(null)
   const [isDatabaseModalOpen, setIsDatabaseModalOpen] = React.useState(false)
-  const messagesEndRef = React.useRef<HTMLDivElement>(null)
   const initialMessageProcessedRef = React.useRef(false)
   const pendingTimeoutsRef = React.useRef<Set<number>>(new Set())
 
@@ -125,17 +115,18 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
     // Clear any streaming messages on mount - existing messages should not stream
     setStreamingMessages(new Set())
     setStoppedMessageIds(new Set())
-  }, [chat.id]) // Only depend on chat.id for initialization
+  }, [chat.id, chat.chartEnabled, chat.mode, setSelectedMode, setChartEnabled]) // Only depend on chat.id for initialization
 
 
   // Cleanup timeouts when component unmounts or chat changes
   React.useEffect(() => {
+    const currentTimeouts = pendingTimeoutsRef.current
     return () => {
       // Clear all pending timeouts
-      pendingTimeoutsRef.current.forEach(timeoutId => {
+      currentTimeouts.forEach(timeoutId => {
         clearTimeout(timeoutId)
       })
-      pendingTimeoutsRef.current.clear()
+      currentTimeouts.clear()
     }
   }, [chat.id])
 
@@ -396,11 +387,11 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
   }, [isDatabaseModalOpen])
 
   // Separate component for message actions to isolate feedback state
-  const MessageActionsWrapper = React.memo(({ messageId, messageContent, timestamp }: { 
+  const MessageActionsWrapper = React.memo(function MessageActionsWrapper({ messageId, messageContent, timestamp }: { 
     messageId: string
     messageContent: string
     timestamp: string
-  }) => {
+  }) {
     const currentFeedback = messageFeedback[messageId]
     
     return (
@@ -416,11 +407,11 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
     )
   })
 
-  const MessageBubble = React.memo(({
+  const MessageBubble = React.memo(function MessageBubble({
     message,
     isStreaming,
     isStopped
-  }: { message: Message; isStreaming: boolean; isStopped: boolean }) => {
+  }: { message: Message; isStreaming: boolean; isStopped: boolean }) {
     const isUser = message.role === 'user'
     const isMobile = useIsMobile()
     

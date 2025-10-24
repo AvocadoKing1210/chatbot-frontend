@@ -8,10 +8,10 @@ interface AuthContextType {
   user: User | null
   session: Session | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: any }>
-  signUp: (email: string, password: string) => Promise<{ error: any }>
-  signOut: () => Promise<{ error: any }>
-  signInWithGoogle: () => Promise<{ error: any }>
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>
+  signUp: (email: string, password: string) => Promise<{ error: Error | null }>
+  signOut: () => Promise<{ error: Error | null }>
+  signInWithGoogle: () => Promise<{ error: Error | null }>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -73,10 +73,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null)
         setSession(null)
       }
-      return { error }
+      return { error: error as Error | null }
     } catch (error) {
       console.error('Sign out error:', error)
-      return { error }
+      return { error: error as Error | null }
     }
   }
 

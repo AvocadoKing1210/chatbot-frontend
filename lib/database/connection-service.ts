@@ -384,7 +384,7 @@ export class DatabaseConnectionService {
       }
 
       return { isValid: true }
-    } catch (error) {
+    } catch {
       return { isValid: false, error: 'Invalid connection string format' }
     }
   }

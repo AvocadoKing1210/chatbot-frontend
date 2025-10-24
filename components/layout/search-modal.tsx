@@ -71,10 +71,10 @@ export function SearchModal({
     return groups
   }, [filteredConversations])
 
-  const handleClose = () => {
+  const handleClose = React.useCallback(() => {
     setQuery("")
     onOpenChange(false)
-  }
+  }, [onOpenChange])
 
   const handleNewChat = () => {
     onCreateNewChat()
@@ -93,7 +93,7 @@ export function SearchModal({
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [open])
+  }, [open, handleClose])
 
   return (
     <AnimatePresence>

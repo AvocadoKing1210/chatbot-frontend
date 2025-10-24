@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useToast } from '@/hooks/use-toast'
@@ -46,7 +46,7 @@ export function DatabaseConnectionModal({
   })
   const [isTesting, setIsTesting] = useState(false)
   const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null)
-  const [showPreview, setShowPreview] = useState(false)
+  const [, setShowPreview] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState({
     connection: false,
     preview: false,

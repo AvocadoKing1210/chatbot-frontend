@@ -14,7 +14,6 @@ import {
   PromptInputModelSelectContent,
   PromptInputModelSelectItem,
   PromptInputModelSelectTrigger,
-  PromptInputModelSelectValue,
 } from "./prompt-input"
 
 export interface SelectorOption {
@@ -69,7 +68,7 @@ export function ChatInput({
   return (
     <div className={cn("w-full", className)}>
       <PromptInput
-        onSubmit={({ text, files }, event) => {
+        onSubmit={({ text }) => {
           if (text && text.trim() && onSend) {
             onSend(text.trim())
           }
