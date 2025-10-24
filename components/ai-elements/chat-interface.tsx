@@ -127,39 +127,6 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
     setStoppedMessageIds(new Set())
   }, [chat.id]) // Only depend on chat.id for initialization
 
-  // Handle initial AI response for new chats (separate effect)
-  React.useEffect(() => {
-    // Check if this is a new chat with only a user message (needs AI response)
-    const hasOnlyUserMessage = chat.messages.length === 1 && chat.messages[0].role === 'user'
-    if (hasOnlyUserMessage && !initialMessageProcessedRef.current) {
-      initialMessageProcessedRef.current = true
-      // Generate AI response for the initial user message
-      const userMessage = chat.messages[0].content
-      setIsLoading(true)
-      
-      // Use async function to handle the AI response
-      const generateInitialResponse = async () => {
-        try {
-          const aiResponse = await generateAIResponse(userMessage, selectedMode)
-          const messageId = await addMessage(chat.id, aiResponse, 'assistant')
-          
-          // Mark the new AI message for streaming
-          if (messageId) {
-            setStreamingMessages(prev => new Set(prev).add(messageId))
-          }
-        } catch (error) {
-          console.error('Error generating AI response:', error)
-          // Add error message to chat
-          const errorMessage = `I apologize, but I encountered an error while processing your request. Please try again.`
-          await addMessage(chat.id, errorMessage, 'assistant')
-        } finally {
-          setIsLoading(false)
-        }
-      }
-      
-      generateInitialResponse()
-    }
-  }, [chat.id, chat.messages.length]) // Only depend on chat.id and message count
 
   // Cleanup timeouts when component unmounts or chat changes
   React.useEffect(() => {
@@ -179,6 +146,16 @@ export function ChatInterface({ chat }: ChatInterfaceProps) {
 
   // Memoize messages to prevent unnecessary re-renders
   const memoizedMessages = React.useMemo(() => chat.messages, [chat.messages])
+
+  // Safety: prune streaming ids that no longer exist in the message list (e.g., after regen or DB reload)
+  React.useEffect(() => {
+    setStreamingMessages(prev => {
+      if (prev.size === 0) return prev
+      const messageIdSet = new Set(memoizedMessages.map(m => m.id))
+      const filtered = new Set(Array.from(prev).filter(id => messageIdSet.has(id)))
+      return filtered.size === prev.size ? prev : filtered
+    })
+  }, [memoizedMessages])
 
   const handleSendMessage = async (message: string) => {
     // If there's an ongoing stream or pending response, stop/clear them first

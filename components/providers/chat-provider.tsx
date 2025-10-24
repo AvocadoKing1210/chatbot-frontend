@@ -107,6 +107,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const [isLoading, setIsLoading] = React.useState(true)
   const [animatingChats, setAnimatingChats] = React.useState<Set<string>>(new Set())
   const [animatingFolders, setAnimatingFolders] = React.useState<Set<string>>(new Set())
+  const initialResponseProcessedRef = React.useRef<Set<string>>(new Set())
   
   // Load data when user is authenticated
   React.useEffect(() => {
@@ -220,6 +221,8 @@ export function ChatProvider({ children }: ChatProviderProps) {
       throw error
     }
   }, [user?.id])
+
+  
 
   const addMessage = React.useCallback(async (chatId: string, content: string, role: 'user' | 'assistant'): Promise<string> => {
     try {
@@ -480,6 +483,43 @@ export function ChatProvider({ children }: ChatProviderProps) {
       throw error
     }
   }, [animateChatOperation])
+
+  // Centralized initial-response orchestration (idempotent across mounts and StrictMode)
+  React.useEffect(() => {
+    const chat = currentChat
+    if (!chat) return
+
+    const hasOnlyUserMessage = chat.messages.length === 1 && chat.messages[0].role === 'user'
+    if (!hasOnlyUserMessage) return
+
+    const key = `initial_ai_done:${chat.id}`
+    let alreadyProcessed = false
+    try {
+      alreadyProcessed = initialResponseProcessedRef.current.has(chat.id) || (typeof window !== 'undefined' && sessionStorage.getItem(key) === '1')
+    } catch {}
+
+    if (alreadyProcessed) return
+
+    // Mark processed early to avoid StrictMode double-invocation
+    initialResponseProcessedRef.current.add(chat.id)
+    try {
+      if (typeof window !== 'undefined') sessionStorage.setItem(key, '1')
+    } catch {}
+
+    const run = async () => {
+      try {
+        const userMessage = chat.messages[0].content
+        const mode = (chat.mode as 'sql' | 'python') || 'general'
+        const aiResponse = await generateAIResponse(userMessage, mode)
+        await addMessage(chat.id, aiResponse, 'assistant')
+      } catch (err) {
+        console.error('Initial AI response failed:', err)
+        // Intentionally keep the processed flag to prevent loops; user can regenerate manually
+      }
+    }
+
+    run()
+  }, [currentChat, generateAIResponse, addMessage])
 
   const value: ChatContextType = {
     currentChat,

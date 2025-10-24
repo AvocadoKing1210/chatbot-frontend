@@ -31,7 +31,11 @@ function ChatPageContent() {
       // First try to find chat in loaded chats
       const chat = chats.find(c => c.id === chatId)
       if (chat && chat.messages.length > 0) {
-        setCurrentChat(chat)
+        // Only update if different or messages changed to avoid unnecessary re-mounts
+        const shouldUpdate = !currentChat || currentChat.id !== chat.id || currentChat.messages.length !== chat.messages.length
+        if (shouldUpdate) {
+          setCurrentChat(chat)
+        }
         setIsLoadingChat(false)
         return
       }
@@ -41,7 +45,11 @@ function ChatPageContent() {
         try {
           const chat = await getChat(chatId)
           if (chat && chat.messages.length > 0) {
-            setCurrentChat(chat)
+            // Only update if different or messages changed
+            const shouldUpdate = !currentChat || currentChat.id !== chat.id || currentChat.messages.length !== chat.messages.length
+            if (shouldUpdate) {
+              setCurrentChat(chat)
+            }
             setIsLoadingChat(false)
           } else {
             setChatNotFound(true)

@@ -146,13 +146,13 @@ export const ToolOutput = ({
       </h4>
       <div
         className={cn(
-          "overflow-x-auto rounded-md text-xs [&_table]:w-full",
+          "rounded-md text-xs [&_table]:w-full",
           errorText
-            ? "bg-destructive/10 text-destructive"
-            : "bg-muted/50 text-foreground"
+            ? "bg-destructive/10 text-destructive p-3 break-words whitespace-pre-wrap"
+            : "bg-muted/50 text-foreground overflow-x-auto"
         )}
       >
-        {errorText && <div>{errorText}</div>}
+        {errorText && <div className="leading-relaxed">{errorText}</div>}
         {Output}
       </div>
     </div>

@@ -10,7 +10,7 @@ import { DataTable, type DataTableColumn } from "./data-table"
 import { ChartCreationModal, type ChartConfig } from "./chart-creation-modal"
 import { MuiChart } from "./mui-chart"
 import { cn } from "@/lib/utils"
-import { Play, Repeat, BarChart3, Download, CheckCircleIcon, CircleIcon, ClockIcon, XCircleIcon, ChevronDownIcon } from "lucide-react"
+import { Play, Repeat, BarChart3, Download, CheckCircleIcon, CircleIcon, ClockIcon, XCircleIcon, ChevronDownIcon, Square, ChevronRight } from "lucide-react"
 import { mockQueryExecutionResponse } from "@/data"
 //
 
@@ -22,6 +22,7 @@ export type ExecutionToolProps = React.HTMLAttributes<HTMLDivElement> & {
   shouldExecute?: boolean
   onSuccess?: (queryId?: number) => void
   onComplete?: () => void
+  onStart?: () => void
 }
 
 type StoredExecution = {
@@ -191,6 +192,27 @@ function clearChartsForCodeHash(codeHash: string) {
   } catch {}
 }
 
+// Normalize a raw SQL engine error into a concise human message
+function normalizeSqlErrorMessage(message: string): string {
+  if (!message) return 'Unknown SQL error'
+  // Common Postgres error phrasing
+  if (/operator does not exist/i.test(message)) return 'Type mismatch in condition or operator'
+  if (/syntax error/i.test(message)) return 'Syntax error in SQL'
+  if (/relation "?.+"? does not exist/i.test(message)) return 'Table or view not found'
+  if (/column "?.+"? does not exist/i.test(message)) return 'Column not found'
+  if (/permission denied/i.test(message)) return 'Permission denied for this operation'
+  return message
+}
+
+// Extract short + details
+function parseSqlErrorMessage(message: string): { message: string; details?: string } {
+  const short = normalizeSqlErrorMessage(message)
+  if (short !== message) {
+    return { message: short, details: message }
+  }
+  return { message }
+}
+
 // Utility function for debugging - can be called from browser console
 function getStoredChartsInfo() {
   if (typeof window === "undefined") return { total: 0, byCodeHash: {} }
@@ -220,6 +242,7 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
   const [rows, setRows] = React.useState<Array<Record<string, unknown>>>(() => hydratedEntry?.rows ?? [])
   const [meta, setMeta] = React.useState<{ full: boolean; effectiveLimit: number; wasClamped: boolean } | undefined>(() => hydratedEntry?.meta)
   const [queryId, setQueryId] = React.useState<number | undefined>(() => hydratedEntry?.id)
+  const [errorDetails, setErrorDetails] = React.useState<string | undefined>(undefined)
   const [userOpened, setUserOpened] = React.useState<boolean>(() => {
     if (typeof window === "undefined") return shouldExecute
     try {
@@ -423,6 +446,8 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
     setUserOpened(true)
     setExecState("running")
     setExecError(undefined)
+    // notify start for external UI if provided
+    try { (props as any)?.onStart?.() } catch {}
     try {
       const startedAt = performance.now()
       execMark(`exec:start:${codeHash}`)
@@ -461,6 +486,8 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
       let envelopePromise = EXEC_INFLIGHT.get(requestKey)
       if (!envelopePromise) {
         envelopePromise = (async () => {
+          const controller = new AbortController()
+          EXEC_ABORTS.set(requestKey, controller)
           const response = await fetch('/api/database/execute-query', {
             method: 'POST',
             headers: {
@@ -470,6 +497,7 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
               connectionString: conn.connectionString,
               query: code
             }),
+            signal: controller.signal,
           })
           let body: any = null
           try {
@@ -498,6 +526,7 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
       setRows(result.data as Array<Record<string, unknown>>)
       setMeta(result.meta)
       setQueryId(result.query_id)
+      setErrorDetails(undefined)
       setExecState("success")
       console.log("status:", "success")
       console.log("rows:", (result.data || []).length, "columns:", (result.columns || []).length)
@@ -521,10 +550,18 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
       setCachedExecution(entry)
       onSuccess?.(result.query_id)
     } catch (e) {
-      setExecError((e as Error).message)
+      const err = e as Error
+      if ((err as any)?.name === 'AbortError') {
+        setExecError('Execution cancelled')
+      } else {
+        const msg = (err && err.message) ? err.message : String(err)
+        const { message: shortMsg, details } = parseSqlErrorMessage(msg)
+        setExecError(shortMsg)
+        setErrorDetails(details)
+      }
       setExecState("error")
-      console.error("status:", "error", "message:", (e as Error).message)
-      execTrace("ExecutionTool error", { codeHash, message: (e as Error).message })
+      console.error("status:", "error", "message:", err?.message)
+      execTrace("ExecutionTool error", { codeHash, message: err?.message })
     } finally {
       try {
         const requestKey = `${mode}:${codeHash}`
@@ -622,7 +659,39 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
             {getStatusBadge(execState)}
           </CollapsibleTrigger>
           <div className="flex items-center gap-1">
-            {/* Action buttons - only show when execution is successful */}
+            {/* Execute / Stop / Refresh */}
+            {execState === "idle" && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setExecError(undefined)
+                  void handleExecute()
+                }}
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                title="Run"
+                aria-label="Run"
+              >
+                <Play className="h-4 w-4" />
+              </Button>
+            )}
+            {execState === "running" && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  try {
+                    const requestKey = `${mode}:${codeHash}`
+                    EXEC_ABORTS.get(requestKey)?.abort()
+                  } catch {}
+                }}
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                title="Stop"
+                aria-label="Stop"
+              >
+                <Square className="h-4 w-4" />
+              </Button>
+            )}
             {execState === "success" && (
               <>
                 <Button
@@ -675,6 +744,14 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
             }
             errorText={execError}
           />
+          {execState === "error" && errorDetails && (
+            <div className="px-4 pb-4 text-xs text-muted-foreground">
+              <details>
+                <summary className="cursor-pointer inline-flex items-center gap-1"><ChevronRight className="h-3 w-3" /> Details</summary>
+                <pre className="mt-2 whitespace-pre-wrap break-words">{errorDetails}</pre>
+              </details>
+            </div>
+          )}
         </CollapsibleContent>
       </Collapsible>
       

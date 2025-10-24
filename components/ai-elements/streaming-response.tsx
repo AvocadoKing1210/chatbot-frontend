@@ -24,6 +24,12 @@ export function StreamingResponse({
   const [displayedContent, setDisplayedContent] = React.useState("")
   const [isComplete, setIsComplete] = React.useState(false)
   const intervalRef = React.useRef<number | null>(null)
+  const onCompleteRef = React.useRef<(() => void) | undefined>(undefined)
+
+  // Keep the latest callback in a ref to avoid restarting the stream on re-renders
+  React.useEffect(() => {
+    onCompleteRef.current = onStreamComplete
+  }, [onStreamComplete])
 
   // Handle streaming logic
   React.useEffect(() => {
@@ -61,7 +67,7 @@ export function StreamingResponse({
         currentIndex++
       } else {
         setIsComplete(true)
-        onStreamComplete?.()
+        onCompleteRef.current?.()
         if (intervalRef.current) {
           clearInterval(intervalRef.current)
           intervalRef.current = null
@@ -75,7 +81,7 @@ export function StreamingResponse({
         intervalRef.current = null
       }
     }
-  }, [content, isStreaming, onStreamComplete])
+  }, [content, isStreaming])
 
   // Handle external stop signal
   React.useEffect(() => {
@@ -85,9 +91,9 @@ export function StreamingResponse({
         intervalRef.current = null
       }
       setIsComplete(true)
-      onStreamComplete?.()
+      onCompleteRef.current?.()
     }
-  }, [shouldStop, isStreaming, isComplete, onStreamComplete])
+  }, [shouldStop, isStreaming, isComplete])
 
   // If not streaming, show content immediately
   if (!isStreaming) {
