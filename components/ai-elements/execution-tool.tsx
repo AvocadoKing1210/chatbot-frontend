@@ -45,6 +45,73 @@ type StoredChart = {
 const HISTORY_KEY = "exec_history_v1"
 const CHARTS_KEY = "exec_charts_v1"
 
+// In-memory cache to avoid re-hydration flicker and repeated storage reads
+const EXEC_RESULT_CACHE = new Map<string, StoredExecution>()
+const EXEC_INFLIGHT = new Map<string, Promise<{ ok: boolean; status: number; body: any }>>()
+const EXEC_ABORTS = new Map<string, AbortController>()
+
+function getExecCacheKey(mode: "sql" | "python", codeHash: string) {
+  return `${mode}:${codeHash}`
+}
+
+function getCachedExecution(mode: "sql" | "python", codeHash: string): StoredExecution | null {
+  const key = getExecCacheKey(mode, codeHash)
+  const cached = EXEC_RESULT_CACHE.get(key)
+  if (cached) return cached
+  const history = loadHistory()
+  const entry = history.find((h) => h.codeHash === codeHash && h.mode === mode) || null
+  if (entry) EXEC_RESULT_CACHE.set(key, entry)
+  return entry
+}
+
+function setCachedExecution(entry: StoredExecution) {
+  const key = getExecCacheKey(entry.mode, entry.codeHash)
+  if (EXEC_RESULT_CACHE.has(key)) EXEC_RESULT_CACHE.delete(key)
+  EXEC_RESULT_CACHE.set(key, entry)
+  // Simple LRU eviction
+  const MAX_CACHE = 50
+  if (EXEC_RESULT_CACHE.size > MAX_CACHE) {
+    const oldest = EXEC_RESULT_CACHE.keys().next().value as string | undefined
+    if (oldest) EXEC_RESULT_CACHE.delete(oldest)
+  }
+}
+
+function MeasuredResults({ cacheKey, children }: { cacheKey: string; children: React.ReactNode }) {
+  const containerRef = React.useRef<HTMLDivElement | null>(null)
+  const [minHeight, setMinHeight] = React.useState<number | undefined>(() => {
+    if (typeof window === "undefined") return undefined
+    try {
+      const raw = localStorage.getItem(`results_h_${cacheKey}`)
+      const h = raw ? Number(raw) : NaN
+      return Number.isFinite(h) && h > 0 ? h : undefined
+    } catch {
+      return undefined
+    }
+  })
+
+  React.useEffect(() => {
+    if (!containerRef.current) return
+    const el = containerRef.current
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const h = Math.round(entry.contentRect.height)
+        if (h > 0) {
+          setMinHeight(h)
+          try { localStorage.setItem(`results_h_${cacheKey}`, String(h)) } catch {}
+        }
+      }
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [cacheKey])
+
+  return (
+    <div ref={containerRef} style={minHeight ? { minHeight } : undefined}>
+      {children}
+    </div>
+  )
+}
+
 const getStatusBadge = (status: ExecutionState) => {
   const labels = {
     "idle": "Pending",
@@ -145,13 +212,14 @@ if (typeof window !== "undefined") {
 }
 
 export const ExecutionTool = React.memo(function ExecutionTool({ className, mode, code, shouldExecute = false, onSuccess, onComplete, ...props }: ExecutionToolProps) {
-  const [execState, setExecState] = React.useState<ExecutionState>("idle")
-  const [execError, setExecError] = React.useState<string | undefined>()
-  const [columns, setColumns] = React.useState<DataTableColumn[]>([])
-  const [rows, setRows] = React.useState<Array<Record<string, unknown>>>([])
-  const [meta, setMeta] = React.useState<{ full: boolean; effectiveLimit: number; wasClamped: boolean } | undefined>()
-  const [queryId, setQueryId] = React.useState<number | undefined>()
   const codeHash = React.useMemo(() => hashCode(`${mode}:${code}`), [mode, code])
+  const hydratedEntry = React.useMemo(() => getCachedExecution(mode, codeHash), [mode, codeHash])
+  const [execState, setExecState] = React.useState<ExecutionState>(hydratedEntry ? "success" : "idle")
+  const [execError, setExecError] = React.useState<string | undefined>()
+  const [columns, setColumns] = React.useState<DataTableColumn[]>(() => hydratedEntry?.columns ?? [])
+  const [rows, setRows] = React.useState<Array<Record<string, unknown>>>(() => hydratedEntry?.rows ?? [])
+  const [meta, setMeta] = React.useState<{ full: boolean; effectiveLimit: number; wasClamped: boolean } | undefined>(() => hydratedEntry?.meta)
+  const [queryId, setQueryId] = React.useState<number | undefined>(() => hydratedEntry?.id)
   const [userOpened, setUserOpened] = React.useState<boolean>(() => {
     if (typeof window === "undefined") return shouldExecute
     try {
@@ -187,39 +255,13 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
     }
   })
   
-  // Preload any prior execution synchronously to avoid flicker
-  const hydrated = React.useMemo(() => {
-    const history = loadHistory()
-    const entry = history.find((h) => h.codeHash === codeHash && h.mode === mode)
-    if (entry) {
-      return {
-        columns: entry.columns,
-        rows: entry.rows,
-        meta: entry.meta,
-        queryId: entry.id,
-        execState: "success" as const,
-      }
-    }
-    return null
-  }, [codeHash, mode])
-
+  // Initial state pre-filled from in-memory cache/storage to avoid first-render flicker
   React.useEffect(() => {
-    if (hydrated) {
-      setColumns(hydrated.columns)
-      setRows(hydrated.rows)
-      setMeta(hydrated.meta)
-      setQueryId(hydrated.queryId)
-      setExecState("success")
-      execTrace("ExecutionTool prehydrated from history", { codeHash, rows: hydrated.rows?.length ?? 0 })
-    } else {
-      setColumns([])
-      setRows([])
-      setMeta(undefined)
-      setQueryId(undefined)
-      setExecState("idle")
+    if (hydratedEntry) {
+      execTrace("ExecutionTool prehydrated from cache", { codeHash, rows: hydratedEntry.rows?.length ?? 0 })
     }
-    // userOpened remains false unless user executes
-  }, [codeHash, mode, hydrated])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Store created charts (preload synchronously to avoid flicker)
   const [createdCharts, setCreatedCharts] = React.useState<Array<{ id: string; config: ChartConfig }>>(() => {
@@ -270,6 +312,13 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
   // Track if this is the initial page load (not a component re-render)
   const isInitialLoadRef = React.useRef(true)
   
+  // Cache freshness (TTL)
+  const CACHE_TTL_MS = 10 * 60 * 1000
+  const isCacheFresh = React.useMemo(() => {
+    if (!hydratedEntry) return false
+    const createdAtTs = new Date(hydratedEntry.createdAt).getTime()
+    return Number.isFinite(createdAtTs) && (Date.now() - createdAtTs) < CACHE_TTL_MS
+  }, [hydratedEntry])
 
   const handleDownloadCSV = React.useCallback(() => {
     if (columns.length === 0 || rows.length === 0) return
@@ -368,7 +417,7 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
     setEditingChart(null)
   }, [editingChart])
 
-  const handleExecute = async () => {
+  const handleExecute = async (forceNew?: boolean) => {
     execTraceGroupStart(`ExecutionTool handleExecute ${codeHash}`, { mode })
     console.log(`[ExecutionTool] handleExecute called for codeHash: ${codeHash}`)
     setUserOpened(true)
@@ -401,24 +450,50 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
         console.log("connection:", { name: conn?.name, sanitized: "[unparseable]" })
       }
 
-      // Execute real SQL query against the database
-      const response = await fetch('/api/database/execute-query', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          connectionString: conn.connectionString,
-          query: code
-        }),
-      })
+      // Execute real SQL query against the database with in-flight de-duplication (parsed once)
+      const requestKey = `${mode}:${codeHash}`
+      if (forceNew) {
+        const prev = EXEC_ABORTS.get(requestKey)
+        try { prev?.abort() } catch {}
+        EXEC_ABORTS.delete(requestKey)
+        EXEC_INFLIGHT.delete(requestKey)
+      }
+      let envelopePromise = EXEC_INFLIGHT.get(requestKey)
+      if (!envelopePromise) {
+        envelopePromise = (async () => {
+          const response = await fetch('/api/database/execute-query', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              connectionString: conn.connectionString,
+              query: code
+            }),
+          })
+          let body: any = null
+          try {
+            body = await response.json()
+          } catch {
+            try {
+              const text = await response.text()
+              body = { message: text }
+            } catch {
+              body = null
+            }
+          }
+          return { ok: response.ok, status: response.status, body }
+        })()
+        EXEC_INFLIGHT.set(requestKey, envelopePromise)
+      }
+      const envelope = await envelopePromise
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Query execution failed')
+      if (!envelope.ok) {
+        const msg = envelope.body?.message || `Query execution failed (HTTP ${envelope.status})`
+        throw new Error(msg)
       }
 
-      const result = await response.json()
+      const result = envelope.body
       setColumns(result.columns)
       setRows(result.data as Array<Record<string, unknown>>)
       setMeta(result.meta)
@@ -443,6 +518,7 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
         createdAt: new Date().toISOString(),
       }
       saveHistory([...history, entry])
+      setCachedExecution(entry)
       onSuccess?.(result.query_id)
     } catch (e) {
       setExecError((e as Error).message)
@@ -450,6 +526,11 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
       console.error("status:", "error", "message:", (e as Error).message)
       execTrace("ExecutionTool error", { codeHash, message: (e as Error).message })
     } finally {
+      try {
+        const requestKey = `${mode}:${codeHash}`
+        EXEC_INFLIGHT.delete(requestKey)
+        EXEC_ABORTS.delete(requestKey)
+      } catch {}
       console.groupEnd()
       onComplete?.()
       execTraceGroupEnd()
@@ -540,6 +621,19 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
                 >
                   <Download className="h-4 w-4" />
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setExecError(undefined)
+                    void handleExecute()
+                  }}
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                  title={isCacheFresh ? "Refresh" : "Refresh (cache stale)"}
+                  aria-label="Refresh"
+                >
+                  <Repeat className="h-4 w-4" />
+                </Button>
               </>
             )}
             <CollapsibleTrigger className="p-1">
@@ -552,9 +646,11 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
           <ToolOutput
             output={
               execState === "success" ? (
-                <div className="p-2">
-                  <DataTable columns={columns} rows={rows} meta={meta} />
-                </div>
+                <MeasuredResults cacheKey={`${mode}:${codeHash}`}>
+                  <div className="p-2">
+                    <DataTable columns={columns} rows={rows} meta={meta} stateKey={`${mode}:${codeHash}`} />
+                  </div>
+                </MeasuredResults>
               ) : undefined
             }
             errorText={execError}
@@ -571,6 +667,7 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
               config={chart.config}
               columns={columns}
               rows={rows}
+              skipAnimation={Boolean(hydratedEntry)}
               onEdit={() => beginEditChart(chart.id)}
               onDelete={() => handleChartDelete(chart.id)}
             />

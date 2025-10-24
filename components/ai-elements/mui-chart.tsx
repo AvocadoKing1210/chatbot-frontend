@@ -29,6 +29,7 @@ export type MuiChartProps = {
   rows: Array<Record<string, unknown>>
   onEdit?: () => void
   onDelete?: () => void
+  skipAnimation?: boolean
 }
 
 const chartIcons = {
@@ -40,7 +41,7 @@ const chartIcons = {
   table: BarChart3, // Use bar chart icon for table as fallback
 } as const
 
-export function MuiChart({ config, columns, rows, onEdit, onDelete }: MuiChartProps) {
+export const MuiChart = React.memo(function MuiChart({ config, columns, rows, onEdit, onDelete, skipAnimation }: MuiChartProps) {
   const [isModalOpen, setIsModalOpen] = React.useState(false)
   React.useEffect(() => {
     execTrace("MuiChart mount", { title: config.title, type: config.type, rows: rows.length, cols: columns.length })
@@ -346,7 +347,7 @@ export function MuiChart({ config, columns, rows, onEdit, onDelete }: MuiChartPr
             layout={config.barOptions?.layout === 'horizontal' ? 'horizontal' : undefined}
             barLabel={config.barOptions?.barLabel === 'value' ? 'value' : undefined}
             grid={config.barOptions?.showGrid ? { vertical: true, horizontal: true } : undefined}
-            skipAnimation={config.barOptions?.skipAnimation}
+            skipAnimation={skipAnimation ?? config.barOptions?.skipAnimation}
             {...commonProps}
           />
         )
@@ -377,7 +378,7 @@ export function MuiChart({ config, columns, rows, onEdit, onDelete }: MuiChartPr
               color: `hsl(${200 + index * 40}, 70%, 50%)`, // Different colors for each series
             }))}
             grid={config.lineOptions?.showGrid ? { vertical: true, horizontal: true } : undefined}
-            skipAnimation={config.lineOptions?.skipAnimation}
+            skipAnimation={skipAnimation ?? config.lineOptions?.skipAnimation}
             {...commonProps}
           />
         )
@@ -516,4 +517,13 @@ export function MuiChart({ config, columns, rows, onEdit, onDelete }: MuiChartPr
       </Dialog>
     </Card>
   )
-}
+}, (prev, next) => {
+  // Avoid re-render unless inputs actually changed (by reference)
+  return (
+    prev.config === next.config &&
+    prev.rows === next.rows &&
+    prev.columns === next.columns &&
+    prev.onEdit === next.onEdit &&
+    prev.onDelete === next.onDelete
+  )
+})
