@@ -682,15 +682,17 @@ export const ExecutionTool = React.memo(function ExecutionTool({ className, mode
       {createdCharts.length > 0 && (
         <div className="mt-4 space-y-4">
           {createdCharts.map((chart) => (
-            <MuiChart
-              key={chart.id}
-              config={chart.config}
-              columns={columns}
-              rows={rows}
-              skipAnimation={Boolean(hydratedEntry)}
-              onEdit={() => beginEditChart(chart.id)}
-              onDelete={() => handleChartDelete(chart.id)}
-            />
+            <MeasuredResults key={`wrap:${mode}:${codeHash}:${chart.id}`} cacheKey={`chart:${mode}:${codeHash}:${chart.id}`}>
+              <MuiChart
+                key={chart.id}
+                config={chart.config}
+                columns={columns}
+                rows={rows}
+                skipAnimation={Boolean(hydratedEntry)}
+                onEdit={() => beginEditChart(chart.id)}
+                onDelete={() => handleChartDelete(chart.id)}
+              />
+            </MeasuredResults>
           ))}
         </div>
       )}

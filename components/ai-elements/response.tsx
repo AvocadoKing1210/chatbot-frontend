@@ -297,7 +297,10 @@ export const Response = memo(
       {...props}
     />
   ),
-  (prevProps, nextProps) => prevProps.children === nextProps.children
+  (prevProps, nextProps) => (
+    prevProps.children === nextProps.children &&
+    prevProps.chartEnabled === nextProps.chartEnabled
+  )
 );
 
 Response.displayName = "Response";

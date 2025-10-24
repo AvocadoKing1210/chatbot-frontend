@@ -518,12 +518,11 @@ export const MuiChart = React.memo(function MuiChart({ config, columns, rows, on
     </Card>
   )
 }, (prev, next) => {
-  // Avoid re-render unless inputs actually changed (by reference)
+  // Avoid re-render unless significant inputs changed (by reference)
   return (
     prev.config === next.config &&
     prev.rows === next.rows &&
     prev.columns === next.columns &&
-    prev.onEdit === next.onEdit &&
-    prev.onDelete === next.onDelete
+    prev.skipAnimation === next.skipAnimation
   )
 })
